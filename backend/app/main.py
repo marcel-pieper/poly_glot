@@ -14,6 +14,6 @@ def health():
     return {"status": "ok"}
 
 
-app.include_router(auth_router, prefix=settings.api_v1_prefix)
-app.include_router(users_router, prefix=settings.api_v1_prefix)
-app.include_router(ai_router, prefix=settings.api_v1_prefix)
+app.include_router(auth_router, prefix="/api")
+app.include_router(users_router, prefix="/api")
+app.include_router(ai_router, prefix="/api")

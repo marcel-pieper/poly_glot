@@ -7,7 +7,6 @@ class Settings(BaseSettings):
 
     app_name: str = "Polyglot API"
     app_env: str = "development"
-    api_v1_prefix: str = "/api/v1"
 
     database_url: str = "postgresql+psycopg://polyglot:polyglot@localhost:5433/polyglot"
     jwt_secret: str = "change-me-in-production"

@@ -13,8 +13,7 @@ import {
 } from "react-native";
 
 const TOKEN_KEY = "polyglot_access_token";
-const API_BASE_URL =
-  process.env.EXPO_PUBLIC_API_BASE_URL ?? "http://localhost:8000/api/v1";
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? "http://localhost:8001/api/";
 
 type User = {
   id: number;
@@ -79,6 +78,7 @@ export default function App() {
       setMessage("Enter your email first.");
       return;
     }
+    console.log("requestCode", normalizedEmail);
     setBusy(true);
     setMessage("");
     setDevCode(null);
