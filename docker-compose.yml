@@ -10,7 +10,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U polyglot -d polyglot"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d polyglot"]
       interval: 5s
       timeout: 3s
       retries: 10
