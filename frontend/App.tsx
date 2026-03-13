@@ -26,19 +26,14 @@ function AppContent() {
     );
   }
 
-  const initialRoute: keyof RootStackParamList = token ? "MainTabs" : "Login";
+  // Avoid transient navigator state on logout by hard-switching to Login.
+  if (!token) {
+    return <LoginScreen />;
+  }
+
   return (
     <NavigationContainer>
-      <Stack.Navigator
-        key={token ?? "guest"}
-        initialRouteName={initialRoute}
-        screenOptions={screenOptions}
-      >
-        <Stack.Screen
-          name="Login"
-          component={LoginScreen}
-          options={{ headerShown: false }}
-        />
+      <Stack.Navigator key={token} initialRouteName="MainTabs" screenOptions={screenOptions}>
         <Stack.Screen
           name="MainTabs"
           component={HomeTabsScreen}

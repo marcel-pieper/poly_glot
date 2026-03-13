@@ -4,6 +4,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import type { HomeTabParamList } from "../types/navigation";
+import AccountScreen from "./AccountScreen";
 
 const Tab = createBottomTabNavigator<HomeTabParamList>();
 
@@ -68,7 +69,7 @@ export default function HomeTabsScreen() {
         {() => <DummyPage title="Translate" />}
       </Tab.Screen>
       <Tab.Screen name="DataTab" options={{ title: "Data", tabBarLabel: "Data" }}>
-        {() => <DummyPage title="Data" />}
+        {() => <AccountScreen />}
       </Tab.Screen>
     </Tab.Navigator>
   );
