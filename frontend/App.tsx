@@ -4,10 +4,7 @@ import { StatusBar } from "expo-status-bar";
 import { ActivityIndicator, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
-import { AccountIconButton } from "./screens/HomeScreen";
-import AccountScreen from "./screens/AccountScreen";
-import ChatPlaceholderScreen from "./screens/ChatPlaceholderScreen";
-import HomeScreen from "./screens/HomeScreen";
+import HomeTabsScreen from "./screens/HomeTabsScreen";
 import LoginScreen from "./screens/LoginScreen";
 import type { RootStackParamList } from "./types/navigation";
 
@@ -29,7 +26,7 @@ function AppContent() {
     );
   }
 
-  const initialRoute: keyof RootStackParamList = token ? "Home" : "Login";
+  const initialRoute: keyof RootStackParamList = token ? "MainTabs" : "Login";
   return (
     <NavigationContainer>
       <Stack.Navigator
@@ -43,15 +40,10 @@ function AppContent() {
           options={{ headerShown: false }}
         />
         <Stack.Screen
-          name="Home"
-          component={HomeScreen}
-          options={{
-            title: "Polyglot",
-            headerRight: () => <AccountIconButton />,
-          }}
+          name="MainTabs"
+          component={HomeTabsScreen}
+          options={{ headerShown: false }}
         />
-        <Stack.Screen name="Account" component={AccountScreen} options={{ title: "Account" }} />
-        <Stack.Screen name="Chat" component={ChatPlaceholderScreen} options={{ title: "Chat" }} />
       </Stack.Navigator>
     </NavigationContainer>
   );
