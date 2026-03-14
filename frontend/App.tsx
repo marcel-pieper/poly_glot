@@ -5,6 +5,7 @@ import { ActivityIndicator, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import ChatScreen from "./screens/ChatScreen";
+import ExplainScreen from "./screens/ExplainScreen";
 import HomeTabsScreen from "./screens/HomeTabsScreen";
 import LoginScreen from "./screens/LoginScreen";
 import type { RootStackParamList } from "./types/navigation";
@@ -44,6 +45,11 @@ function AppContent() {
           name="ChatScreen"
           component={ChatScreen}
           options={({ route }) => ({ title: route.params.title })}
+        />
+        <Stack.Screen
+          name="ExplainScreen"
+          component={ExplainScreen}
+          options={{ title: "Explain" }}
         />
       </Stack.Navigator>
     </NavigationContainer>

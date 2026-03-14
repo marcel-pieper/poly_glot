@@ -4,8 +4,6 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
-  Keyboard,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -13,8 +11,7 @@ import {
   View,
 } from "react-native";
 
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-
+import KeyboardAwareLayout from "../components/KeyboardAwareLayout";
 import { API_BASE_URL, useAuth } from "../contexts/AuthContext";
 import type { RootStackParamList } from "../types/navigation";
 
@@ -36,8 +33,7 @@ type ChatMessage = {
   created_at: string;
 };
 
-export default function ChatScreen({ route }: Props) {
-  const insets = useSafeAreaInsets();
+export default function ChatScreen({ route, navigation }: Props) {
   const { threadId } = route.params;
   const { token } = useAuth();
 
@@ -45,9 +41,12 @@ export default function ChatScreen({ route }: Props) {
   const [loadingMessages, setLoadingMessages] = useState(true);
   const [inputText, setInputText] = useState("");
   const [sending, setSending] = useState(false);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   const flatListRef = useRef<FlatList>(null);
+
+  const openExplain = (params: RootStackParamList["ExplainScreen"]) => {
+    navigation.navigate("ExplainScreen", params);
+  };
 
   const fetchMessages = useCallback(async () => {
     if (!token) return;
@@ -73,28 +72,6 @@ export default function ChatScreen({ route }: Props) {
       setLoadingMessages(false);
     })();
   }, [fetchMessages, flatListRef]);
-
-  useEffect(() => {
-    const show = Keyboard.addListener(
-      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
-      (e) => {
-        setKeyboardHeight(e.endCoordinates.height);
-        setTimeout(() => {
-          flatListRef.current?.scrollToEnd({ animated: true });
-        }, 100);
-      },
-    );
-    const hide = Keyboard.addListener(
-      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide",
-      () => {
-        setKeyboardHeight(0);
-      },
-    );
-    return () => {
-      show.remove();
-      hide.remove();
-    };
-  }, []);
 
   const sendMessage = async () => {
     const text = inputText.trim();
@@ -154,19 +131,58 @@ export default function ChatScreen({ route }: Props) {
           </View>
           {correctionStatus === "pending" && (
             <View style={styles.correctionBox}>
-              <Text style={styles.correctionLabel}>Correction</Text>
+              <View style={styles.correctionHeaderRow}>
+                <Text style={styles.correctionLabel}>Correction</Text>
+                <Pressable
+                  onPress={() =>
+                    openExplain({
+                      messageText: text,
+                      correctionStatus: "pending",
+                      correction: null,
+                    })
+                  }
+                >
+                  <Text style={styles.explainLink}>Explain</Text>
+                </Pressable>
+              </View>
               <Text style={styles.correctionNote}>Generating correction...</Text>
             </View>
           )}
           {correctionStatus === "failed" && (
             <View style={styles.correctionBox}>
-              <Text style={styles.correctionLabel}>Correction</Text>
+              <View style={styles.correctionHeaderRow}>
+                <Text style={styles.correctionLabel}>Correction</Text>
+                <Pressable
+                  onPress={() =>
+                    openExplain({
+                      messageText: text,
+                      correctionStatus: "failed",
+                      correction: null,
+                    })
+                  }
+                >
+                  <Text style={styles.explainLink}>Explain</Text>
+                </Pressable>
+              </View>
               <Text style={styles.correctionNote}>Could not generate correction.</Text>
             </View>
           )}
           {correctionStatus === "complete" && correction && (
             <View style={styles.correctionBox}>
-              <Text style={styles.correctionLabel}>Correction</Text>
+              <View style={styles.correctionHeaderRow}>
+                <Text style={styles.correctionLabel}>Correction</Text>
+                <Pressable
+                  onPress={() =>
+                    openExplain({
+                      messageText: text,
+                      correctionStatus: "complete",
+                      correction,
+                    })
+                  }
+                >
+                  <Text style={styles.explainLink}>Explain</Text>
+                </Pressable>
+              </View>
               <Text style={styles.correctedText}>{correction.corrected}</Text>
               {correction.notes.map((note, i) => (
                 <Text key={i} style={styles.correctionNote}>
@@ -177,7 +193,20 @@ export default function ChatScreen({ route }: Props) {
           )}
           {correctionStatus === "complete" && !correction && (
             <View style={styles.correctionBox}>
-              <Text style={styles.correctionLabel}>Correction</Text>
+              <View style={styles.correctionHeaderRow}>
+                <Text style={styles.correctionLabel}>Correction</Text>
+                <Pressable
+                  onPress={() =>
+                    openExplain({
+                      messageText: text,
+                      correctionStatus: "complete",
+                      correction: null,
+                    })
+                  }
+                >
+                  <Text style={styles.explainLink}>Explain</Text>
+                </Pressable>
+              </View>
               <Text style={styles.correctionNone}>No correction needed.</Text>
             </View>
           )}
@@ -205,7 +234,36 @@ export default function ChatScreen({ route }: Props) {
   }
 
   return (
-    <View style={[styles.container, { paddingBottom: keyboardHeight }]}>
+    <KeyboardAwareLayout
+      containerStyle={styles.container}
+      footerStyle={styles.inputRow}
+      onKeyboardShow={() => flatListRef.current?.scrollToEnd({ animated: true })}
+      footer={
+        <>
+          <TextInput
+            style={styles.textInput}
+            value={inputText}
+            onChangeText={setInputText}
+            placeholder="Type a message…"
+            placeholderTextColor="#94a3b8"
+            multiline
+            returnKeyType="default"
+            editable={!sending}
+          />
+          <Pressable
+            style={({ pressed }) => [styles.sendButton, (pressed || sending) && styles.sendButtonPressed]}
+            onPress={sendMessage}
+            disabled={sending || !inputText.trim()}
+          >
+            {sending ? (
+              <ActivityIndicator color="#ffffff" size="small" />
+            ) : (
+              <Text style={styles.sendButtonText}>Send</Text>
+            )}
+          </Pressable>
+        </>
+      }
+    >
       <FlatList
         ref={flatListRef}
         data={messages}
@@ -219,31 +277,7 @@ export default function ChatScreen({ route }: Props) {
           </View>
         }
       />
-
-      <View style={[styles.inputRow, { paddingBottom: Math.max(insets.bottom, 10) }]}>
-        <TextInput
-          style={styles.textInput}
-          value={inputText}
-          onChangeText={setInputText}
-          placeholder="Type a message…"
-          placeholderTextColor="#94a3b8"
-          multiline
-          returnKeyType="default"
-          editable={!sending}
-        />
-        <Pressable
-          style={({ pressed }) => [styles.sendButton, (pressed || sending) && styles.sendButtonPressed]}
-          onPress={sendMessage}
-          disabled={sending || !inputText.trim()}
-        >
-          {sending ? (
-            <ActivityIndicator color="#ffffff" size="small" />
-          ) : (
-            <Text style={styles.sendButtonText}>Send</Text>
-          )}
-        </Pressable>
-      </View>
-    </View>
+    </KeyboardAwareLayout>
   );
 }
 
@@ -312,6 +346,18 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 0.5,
     marginBottom: 2,
+  },
+  correctionHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 2,
+  },
+  explainLink: {
+    color: "#2563eb",
+    fontSize: 12,
+    fontWeight: "600",
+    textDecorationLine: "underline",
   },
   correctedText: {
     color: "#1c1917",

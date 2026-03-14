@@ -7,6 +7,14 @@ export type RootStackParamList = {
     threadId: number;
     title: string;
   };
+  ExplainScreen: {
+    messageText: string;
+    correctionStatus: "pending" | "complete" | "failed";
+    correction: {
+      corrected: string;
+      notes: string[];
+    } | null;
+  };
 };
 
 export type RootStackScreenProps<T extends keyof RootStackParamList> =
