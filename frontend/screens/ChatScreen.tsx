@@ -5,17 +5,14 @@ import {
   Alert,
   FlatList,
   Keyboard,
-  LayoutAnimation,
   Platform,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
-  UIManager,
   View,
 } from "react-native";
 
-if (Platform.OS === "android") UIManager.setLayoutAnimationEnabledExperimental?.(true);
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { API_BASE_URL, useAuth } from "../contexts/AuthContext";
@@ -81,7 +78,6 @@ export default function ChatScreen({ route }: Props) {
     const show = Keyboard.addListener(
       Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
       (e) => {
-        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
         setKeyboardHeight(e.endCoordinates.height);
         setTimeout(() => {
           flatListRef.current?.scrollToEnd({ animated: true });
@@ -91,7 +87,6 @@ export default function ChatScreen({ route }: Props) {
     const hide = Keyboard.addListener(
       Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide",
       () => {
-        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
         setKeyboardHeight(0);
       },
     );
