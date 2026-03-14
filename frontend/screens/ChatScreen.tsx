@@ -41,11 +41,18 @@ export default function ChatScreen({ route, navigation }: Props) {
   const [loadingMessages, setLoadingMessages] = useState(true);
   const [inputText, setInputText] = useState("");
   const [sending, setSending] = useState(false);
+  const [expandedCorrections, setExpandedCorrections] = useState<Record<number, boolean>>({});
 
   const flatListRef = useRef<FlatList>(null);
 
   const openExplain = (params: RootStackParamList["ExplainScreen"]) => {
     navigation.navigate("ExplainScreen", params);
+  };
+  const toggleCorrectionExpanded = (messageId: number) => {
+    setExpandedCorrections((prev) => ({
+      ...prev,
+      [messageId]: !prev[messageId],
+    }));
   };
 
   const fetchMessages = useCallback(async () => {
@@ -119,6 +126,7 @@ export default function ChatScreen({ route, navigation }: Props) {
     const content = item.content as Record<string, unknown>;
 
     if (isUser) {
+      const isExpanded = !!expandedCorrections[item.id];
       const text = (content.text as string) ?? "";
       const correction = content.correction as Correction | null | undefined;
       const rawStatus = content.correction_status as "pending" | "complete" | "failed" | undefined;
@@ -150,64 +158,41 @@ export default function ChatScreen({ route, navigation }: Props) {
           )}
           {correctionStatus === "failed" && (
             <View style={styles.correctionBox}>
-              <View style={styles.correctionHeaderRow}>
-                <Text style={styles.correctionLabel}>Correction</Text>
-                <Pressable
-                  onPress={() =>
-                    openExplain({
-                      messageText: text,
-                      correctionStatus: "failed",
-                      correction: null,
-                    })
-                  }
-                >
-                  <Text style={styles.explainLink}>Explain</Text>
-                </Pressable>
-              </View>
               <Text style={styles.correctionNote}>Could not generate correction.</Text>
             </View>
           )}
           {correctionStatus === "complete" && correction && (
             <View style={styles.correctionBox}>
-              <View style={styles.correctionHeaderRow}>
-                <Text style={styles.correctionLabel}>Correction</Text>
-                <Pressable
-                  onPress={() =>
-                    openExplain({
-                      messageText: text,
-                      correctionStatus: "complete",
-                      correction,
-                    })
-                  }
-                >
-                  <Text style={styles.explainLink}>Explain</Text>
-                </Pressable>
-              </View>
               <Text style={styles.correctedText}>{correction.corrected}</Text>
-              {correction.notes.map((note, i) => (
-                <Text key={i} style={styles.correctionNote}>
-                  • {note}
-                </Text>
-              ))}
+              {isExpanded &&
+                correction.notes.map((note, i) => (
+                  <Text key={i} style={styles.correctionNote}>
+                    • {note}
+                  </Text>
+                ))}
+              <View style={styles.correctionFooterRow}>
+                <Pressable onPress={() => toggleCorrectionExpanded(item.id)} hitSlop={8}>
+                  <Text style={styles.chevronToggle}>{isExpanded ? "^" : ">"}</Text>
+                </Pressable>
+                {isExpanded && (
+                  <Pressable
+                    onPress={() =>
+                      openExplain({
+                        messageText: text,
+                        correctionStatus: "complete",
+                        correction,
+                      })
+                    }
+                  >
+                    <Text style={styles.explainLink}>Explain</Text>
+                  </Pressable>
+                )}
+              </View>
             </View>
           )}
           {correctionStatus === "complete" && !correction && (
-            <View style={styles.correctionBox}>
-              <View style={styles.correctionHeaderRow}>
-                <Text style={styles.correctionLabel}>Correction</Text>
-                <Pressable
-                  onPress={() =>
-                    openExplain({
-                      messageText: text,
-                      correctionStatus: "complete",
-                      correction: null,
-                    })
-                  }
-                >
-                  <Text style={styles.explainLink}>Explain</Text>
-                </Pressable>
-              </View>
-              <Text style={styles.correctionNone}>No correction needed.</Text>
+            <View style={styles.noCorrectionRow}>
+              <Text style={styles.noCorrectionCheck}>✓</Text>
             </View>
           )}
         </View>
@@ -359,6 +344,18 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     textDecorationLine: "underline",
   },
+  correctionFooterRow: {
+    marginTop: 4,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  chevronToggle: {
+    color: "#78716c",
+    fontSize: 16,
+    fontWeight: "700",
+    lineHeight: 16,
+  },
   correctedText: {
     color: "#1c1917",
     fontSize: 14,
@@ -368,6 +365,17 @@ const styles = StyleSheet.create({
     color: "#57534e",
     fontSize: 13,
     fontStyle: "italic",
+  },
+  noCorrectionRow: {
+    alignSelf: "flex-start",
+    marginTop: 2,
+    marginLeft: 2,
+  },
+  noCorrectionCheck: {
+    color: "#16a34a",
+    fontSize: 16,
+    fontWeight: "700",
+    lineHeight: 16,
   },
   correctionNote: {
     color: "#57534e",
