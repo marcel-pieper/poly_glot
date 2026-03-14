@@ -27,12 +27,11 @@ export default function AccountScreen() {
   const nativeLanguageId = languageData?.native_language?.id ?? user.native_language_id ?? null;
   const activeLanguageId = languageData?.active_language?.id ?? null;
 
-  const activeLanguageOptions = useMemo(
+  const sortedLanguages = useMemo(
     () =>
-      (languageData?.all_available_languages ?? []).filter(
-        (lang) => lang.learning_enabled && lang.id !== nativeLanguageId
-      ),
-    [languageData?.all_available_languages, nativeLanguageId]
+      (languageData?.all_available_languages ?? [])
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    [languageData?.all_available_languages]
   );
 
   const loadLanguages = async () => {
@@ -127,23 +126,32 @@ export default function AccountScreen() {
             {languageLabel(languageData?.native_language)}
           </Text>
           <View style={styles.optionsWrap}>
-            {(languageData?.all_available_languages ?? []).map((lang) => (
-              <Pressable
-                key={`native-${lang.id}`}
-                style={[styles.optionChip, nativeLanguageId === lang.id && styles.optionChipSelected]}
-                disabled={saving}
-                onPress={() => updateMe({ native_language: lang.id })}
-              >
-                <Text
+            {sortedLanguages.map((lang) => {
+              const isSelected = nativeLanguageId === lang.id;
+              const isDisabled = saving || activeLanguageId === lang.id;
+              return (
+                <Pressable
+                  key={`native-${lang.id}`}
                   style={[
-                    styles.optionChipText,
-                    nativeLanguageId === lang.id && styles.optionChipTextSelected,
+                    styles.optionChip,
+                    isSelected && styles.optionChipSelected,
+                    isDisabled && styles.optionChipDisabled,
                   ]}
+                  disabled={isDisabled}
+                  onPress={() => updateMe({ native_language: lang.id })}
                 >
-                  {lang.code.toUpperCase()}
-                </Text>
-              </Pressable>
-            ))}
+                  <Text
+                    style={[
+                      styles.optionChipText,
+                      isSelected && styles.optionChipTextSelected,
+                      isDisabled && styles.optionChipTextDisabled,
+                    ]}
+                  >
+                    {lang.name}
+                  </Text>
+                </Pressable>
+              );
+            })}
           </View>
         </View>
 
@@ -153,26 +161,35 @@ export default function AccountScreen() {
             {languageLabel(languageData?.active_language)}
           </Text>
           <Text style={styles.helperText}>
-            Native language is excluded from these options on purpose.
+            Native and non-learning-enabled languages are disabled.
           </Text>
           <View style={styles.optionsWrap}>
-            {activeLanguageOptions.map((lang) => (
-              <Pressable
-                key={`active-${lang.id}`}
-                style={[styles.optionChip, activeLanguageId === lang.id && styles.optionChipSelected]}
-                disabled={saving}
-                onPress={() => updateMe({ active_language: lang.id })}
-              >
-                <Text
+            {sortedLanguages.map((lang) => {
+              const isSelected = activeLanguageId === lang.id;
+              const isDisabled = saving || !lang.learning_enabled || nativeLanguageId === lang.id;
+              return (
+                <Pressable
+                  key={`active-${lang.id}`}
                   style={[
-                    styles.optionChipText,
-                    activeLanguageId === lang.id && styles.optionChipTextSelected,
+                    styles.optionChip,
+                    isSelected && styles.optionChipSelected,
+                    isDisabled && styles.optionChipDisabled,
                   ]}
+                  disabled={isDisabled}
+                  onPress={() => updateMe({ active_language: lang.id })}
                 >
-                  {lang.code.toUpperCase()}
-                </Text>
-              </Pressable>
-            ))}
+                  <Text
+                    style={[
+                      styles.optionChipText,
+                      isSelected && styles.optionChipTextSelected,
+                      isDisabled && styles.optionChipTextDisabled,
+                    ]}
+                  >
+                    {lang.name}
+                  </Text>
+                </Pressable>
+              );
+            })}
           </View>
         </View>
 
@@ -207,8 +224,10 @@ const styles = StyleSheet.create({
     backgroundColor: "#ffffff",
   },
   optionChipSelected: { borderColor: "#2563eb", backgroundColor: "#dbeafe" },
+  optionChipDisabled: { borderColor: "#d1d5db", backgroundColor: "#f3f4f6" },
   optionChipText: { color: "#0f172a", fontWeight: "600", fontSize: 12 },
   optionChipTextSelected: { color: "#1e3a8a" },
+  optionChipTextDisabled: { color: "#9ca3af" },
   label: { fontSize: 14, color: "#6b7280", marginBottom: 4 },
   email: { fontSize: 18, fontWeight: "600", color: "#111827" },
   spacerSmall: { height: 12 },

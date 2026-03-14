@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -30,15 +30,17 @@ type LanguagesResponse = {
 type LoginStep = "email" | "code" | "native_language" | "active_language";
 
 export default function LoginScreen() {
-  const { login, fetchMe, user } = useAuth();
+  const { login } = useAuth();
   const [busy, setBusy] = useState(false);
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [message, setMessage] = useState("");
   const [devCode, setDevCode] = useState<string | null>(null);
   const [step, setStep] = useState<LoginStep>("email");
-  const [token, setToken] = useState<string | null>(null);
+  const [pendingToken, setPendingToken] = useState<string | null>(null);
   const [languages, setLanguages] = useState<LanguagesResponse | null>(null);
+  const [nativeLanguageId, setNativeLanguageId] = useState<number | null>(null);
+  const [activeLanguageId, setActiveLanguageId] = useState<number | null>(null);
 
   const normalizedEmail = useMemo(() => email.trim().toLowerCase(), [email]);
 
@@ -67,11 +69,6 @@ export default function LoginScreen() {
     }
   };
 
-  const parseSystemLanguageCode = () => {
-    const locale = Intl.DateTimeFormat().resolvedOptions().locale || "en";
-    return locale.split("-")[0].toLowerCase();
-  };
-
   const fetchLanguages = async (accessToken: string) => {
     const response = await fetch(`${API_BASE_URL}/languages`, {
       headers: { Authorization: `Bearer ${accessToken}` },
@@ -82,7 +79,17 @@ export default function LoginScreen() {
       throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
     }
     setLanguages(data);
+    setNativeLanguageId(data.native_language?.id ?? null);
+    setActiveLanguageId(data.active_language?.id ?? null);
     return data;
+  };
+
+  const fetchProfile = async (accessToken: string) => {
+    const response = await fetch(`${API_BASE_URL}/me`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    const data = await parseJsonResponse(response);
+    setNativeLanguageId(data?.native_language_id ?? null);
   };
 
   const updateMe = async (
@@ -104,28 +111,6 @@ export default function LoginScreen() {
     }
   };
 
-  useEffect(() => {
-    if (!token || !languages) return;
-    if (step !== "native_language") return;
-    if (languages.native_language) return;
-
-    const systemCode = parseSystemLanguageCode();
-    const all = languages.all_available_languages;
-    const systemLang = all.find((lang) => lang.code.toLowerCase() === systemCode);
-    const english = all.find((lang) => lang.code.toLowerCase() === "en");
-    const fallback = systemLang ?? english;
-    if (!fallback) return;
-
-    updateMe(token, { native_language: fallback.id })
-      .then(async () => {
-        await fetchMe(token);
-        await fetchLanguages(token);
-      })
-      .catch(() => {
-        // Ignore prefill failures and let user choose manually.
-      });
-  }, [token, languages, step, fetchMe]);
-
   const verifyCode = async () => {
     if (!normalizedEmail || code.trim().length !== 6) {
       setMessage("Enter a valid email and 6-digit code.");
@@ -141,13 +126,15 @@ export default function LoginScreen() {
       });
       const data = await parseJsonResponse(response);
       const accessToken = data.access_token as string;
-      await login(accessToken);
-      setToken(accessToken);
+      setPendingToken(accessToken);
+      await fetchProfile(accessToken);
       const languageData = await fetchLanguages(accessToken);
       if (!languageData.native_language) {
         setStep("native_language");
       } else if (!languageData.active_language) {
         setStep("active_language");
+      } else {
+        await login(accessToken);
       }
       setCode("");
       setMessage("");
@@ -159,12 +146,12 @@ export default function LoginScreen() {
   };
 
   const onNativeSelect = async (languageId: number) => {
-    if (!token) return;
+    if (!pendingToken) return;
     setBusy(true);
     try {
-      await updateMe(token, { native_language: languageId });
-      await fetchMe(token);
-      await fetchLanguages(token);
+      await updateMe(pendingToken, { native_language: languageId });
+      await fetchProfile(pendingToken);
+      await fetchLanguages(pendingToken);
       setStep("active_language");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Failed to set native language");
@@ -174,13 +161,14 @@ export default function LoginScreen() {
   };
 
   const onActiveSelect = async (languageId: number) => {
-    if (!token) return;
+    if (!pendingToken) return;
     setBusy(true);
     try {
-      await updateMe(token, { active_language: languageId });
-      await fetchMe(token);
-      await fetchLanguages(token);
+      await updateMe(pendingToken, { active_language: languageId });
+      await fetchProfile(pendingToken);
+      await fetchLanguages(pendingToken);
       setMessage("");
+      await login(pendingToken);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Failed to set active language");
     } finally {
@@ -188,11 +176,8 @@ export default function LoginScreen() {
     }
   };
 
-  const nativeLanguageId = languages?.native_language?.id ?? user?.native_language_id ?? null;
-  const activeLanguageId = languages?.active_language?.id ?? user?.active_language_space_id ?? null;
-
   const nativeOptions = (languages?.all_available_languages ?? []).filter(
-    (lang) => lang.id !== (languages?.active_language?.id ?? null)
+    (lang) => lang.id !== activeLanguageId
   );
   const activeOptions = (languages?.all_available_languages ?? []).filter(
     (lang) => lang.learning_enabled && lang.id !== nativeLanguageId

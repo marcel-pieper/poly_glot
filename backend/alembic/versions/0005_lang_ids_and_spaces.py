@@ -34,18 +34,9 @@ def upgrade() -> None:
         """
         INSERT INTO supported_languages (code, name, native_name, learning_enabled)
         VALUES
-          ('und', 'Undetermined', 'Undetermined', false),
           ('en', 'English', 'English', true),
           ('es', 'Spanish', 'Español', true),
-          ('fr', 'French', 'Français', true),
-          ('de', 'German', 'Deutsch', true),
-          ('it', 'Italian', 'Italiano', true),
           ('pt', 'Portuguese', 'Português', true),
-          ('nl', 'Dutch', 'Nederlands', true),
-          ('ru', 'Russian', 'Русский', true),
-          ('ja', 'Japanese', '日本語', true),
-          ('ko', 'Korean', '한국어', true),
-          ('zh', 'Chinese', '中文', true)
         ON CONFLICT (code) DO NOTHING
         """
     )
