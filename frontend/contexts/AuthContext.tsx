@@ -7,6 +7,8 @@ const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? "http://localhost:8
 export type User = {
   id: number;
   email: string;
+  native_language_id?: number | null;
+  active_language_space_id?: number | null;
   is_verified: boolean;
   created_at: string;
 };

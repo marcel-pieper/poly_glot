@@ -10,8 +10,8 @@ class Translation(Base):
     __tablename__ = "translations"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    learning_space_id: Mapped[int] = mapped_column(
-        ForeignKey("learning_spaces.id", ondelete="CASCADE"),
+    language_space_id: Mapped[int] = mapped_column(
+        ForeignKey("language_spaces.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
