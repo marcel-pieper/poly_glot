@@ -44,6 +44,12 @@ def create_thread(
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
+    if not user.active_language_space_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Set an active learning language before starting a chat",
+        )
+
     thread = Thread(
         language_space_id=user.active_language_space_id,
         type=ThreadType.CHAT,
@@ -71,7 +77,7 @@ def list_threads(
     )
     total: int = db.execute(select(func.count()).select_from(base_q.subquery())).scalar_one()
     threads = (
-        db.execute(base_q.order_by(Thread.updated_at.desc()).limit(limit).offset(offset))
+        db.execute(base_q.order_by(Thread.id.desc()).limit(limit).offset(offset))
         .scalars()
         .all()
     )
@@ -91,7 +97,7 @@ def list_messages(
         db.execute(
             select(Message)
             .where(Message.thread_id == thread_id)
-            .order_by(Message.created_at.asc())
+            .order_by(Message.id.asc())
             .limit(limit)
             .offset(offset)
         )
@@ -122,7 +128,7 @@ def send_message(
     user_msg = Message(
         thread_id=thread_id,
         role=MessageRole.USER,
-        content={"text": payload.text},
+        content={"text": payload.text, "correction_status": "pending", "correction": None},
     )
     db.add(user_msg)
     db.flush()
@@ -131,7 +137,7 @@ def send_message(
         db.execute(
             select(Message)
             .where(Message.thread_id == thread_id)
-            .order_by(Message.created_at.asc())
+            .order_by(Message.id.asc())
             .limit(20)
         )
         .scalars()
@@ -161,11 +167,18 @@ def send_message(
         target_language=target_lang_code,
         native_language=native_lang_code,
     )
+    logger.info("AI content: %s", ai_content)
+
+    user_msg.content = {
+        "text": payload.text,
+        "correction_status": ai_content.get("status", "failed"),
+        "correction": ai_content.get("correction"),
+    }
 
     assistant_msg = Message(
         thread_id=thread_id,
         role=MessageRole.ASSISTANT,
-        content=ai_content,
+        content={"assistant_response": ai_content.get("assistant_response", "")},
     )
     db.add(assistant_msg)
 

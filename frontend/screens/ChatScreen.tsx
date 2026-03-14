@@ -4,13 +4,14 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native";
-import { KeyboardAvoidingView, KeyboardStickyView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { API_BASE_URL, useAuth } from "../contexts/AuthContext";
@@ -24,8 +25,8 @@ type Correction = {
 };
 
 type MessageContent =
-  | { text: string }
-  | { assistant_response: string; correction: Correction | null };
+  | { text: string; correction_status?: "pending" | "complete" | "failed"; correction?: Correction | null }
+  | { assistant_response: string };
 
 type ChatMessage = {
   id: number;
@@ -36,7 +37,7 @@ type ChatMessage = {
 
 export default function ChatScreen({ route }: Props) {
   const insets = useSafeAreaInsets();
-  const { threadId, title } = route.params;
+  const { threadId } = route.params;
   const { token } = useAuth();
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -78,7 +79,7 @@ export default function ChatScreen({ route }: Props) {
     const optimisticUserMsg: ChatMessage = {
       id: Date.now(),
       role: "user",
-      content: { text },
+      content: { text, correction_status: "pending", correction: null },
       created_at: new Date().toISOString(),
     };
     setMessages((prev) => [...prev, optimisticUserMsg]);
@@ -114,33 +115,57 @@ export default function ChatScreen({ route }: Props) {
     const content = item.content as Record<string, unknown>;
 
     if (isUser) {
+      console.log("content", content);
       const text = (content.text as string) ?? "";
+      const correction = content.correction as Correction | null | undefined;
+      const rawStatus = content.correction_status as "pending" | "complete" | "failed" | undefined;
+      const correctionStatus =
+        rawStatus ?? (correction ? "complete" : undefined);
       return (
-        <View style={[styles.bubble, styles.userBubble]}>
-          <Text style={styles.userText}>{text}</Text>
+        <View style={styles.userContainer}>
+          <View style={[styles.bubble, styles.userBubble]}>
+            <Text style={styles.userText}>{text}</Text>
+          </View>
+          {correctionStatus === "pending" && (
+            <View style={styles.correctionBox}>
+              <Text style={styles.correctionLabel}>Correction</Text>
+              <Text style={styles.correctionNote}>Generating correction...</Text>
+            </View>
+          )}
+          {correctionStatus === "failed" && (
+            <View style={styles.correctionBox}>
+              <Text style={styles.correctionLabel}>Correction</Text>
+              <Text style={styles.correctionNote}>Could not generate correction.</Text>
+            </View>
+          )}
+          {correctionStatus === "complete" && correction && (
+            <View style={styles.correctionBox}>
+              <Text style={styles.correctionLabel}>Correction</Text>
+              <Text style={styles.correctedText}>{correction.corrected}</Text>
+              {correction.notes.map((note, i) => (
+                <Text key={i} style={styles.correctionNote}>
+                  • {note}
+                </Text>
+              ))}
+            </View>
+          )}
+          {correctionStatus === "complete" && !correction && (
+            <View style={styles.correctionBox}>
+              <Text style={styles.correctionLabel}>Correction</Text>
+              <Text style={styles.correctionNone}>No correction needed.</Text>
+            </View>
+          )}
         </View>
       );
     }
 
     const assistantResponse = (content.assistant_response as string) ?? "";
-    const correction = content.correction as Correction | null | undefined;
 
     return (
       <View style={styles.assistantContainer}>
         <View style={[styles.bubble, styles.assistantBubble]}>
           <Text style={styles.assistantText}>{assistantResponse}</Text>
         </View>
-        {correction && (
-          <View style={styles.correctionBox}>
-            <Text style={styles.correctionLabel}>Correction</Text>
-            <Text style={styles.correctedText}>{correction.corrected}</Text>
-            {correction.notes.map((note, i) => (
-              <Text key={i} style={styles.correctionNote}>
-                • {note}
-              </Text>
-            ))}
-          </View>
-        )}
       </View>
     );
   };
@@ -154,7 +179,11 @@ export default function ChatScreen({ route }: Props) {
   }
 
   return (
-    <KeyboardAvoidingView behavior="padding" style={styles.container} keyboardVerticalOffset={85}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={85}
+    >
       <FlatList
         ref={flatListRef}
         data={messages}
@@ -222,6 +251,11 @@ const styles = StyleSheet.create({
     backgroundColor: "#2563eb",
     alignSelf: "flex-end",
   },
+  userContainer: {
+    alignSelf: "flex-end",
+    maxWidth: "85%",
+    gap: 6,
+  },
   userText: {
     color: "#ffffff",
     fontSize: 15,
@@ -262,6 +296,11 @@ const styles = StyleSheet.create({
     color: "#1c1917",
     fontSize: 14,
     fontWeight: "600",
+  },
+  correctionNone: {
+    color: "#57534e",
+    fontSize: 13,
+    fontStyle: "italic",
   },
   correctionNote: {
     color: "#57534e",

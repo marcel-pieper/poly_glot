@@ -8,6 +8,52 @@ from app.core.config import get_settings
 settings = get_settings()
 logger = logging.getLogger("polyglot.openai")
 
+def make_system_chat_prompt(target_language: str | None = None, native_language: str | None = None) -> str:
+    lang_ctx = ""
+    if target_language:
+        lang_ctx = f"The user is learning {target_language}."
+        if native_language:
+            lang_ctx += f" Their native language is {native_language}."
+    
+    system_prompt = (
+        f"You are an engaging language conversation partner for Polyglot. {lang_ctx}\n\n"
+
+        "Your job has two goals:\n"
+        "1. Keep a natural conversation going.\n"
+        "2. Help the user improve by correcting mistakes.\n\n"
+
+        "Conversation rules:\n"
+        "- Respond naturally to the user's message.\n"
+        "- Show curiosity and engagement.\n"
+        "- Ask follow-up questions when appropriate.\n"
+        "- Keep responses relatively concise.\n\n"
+
+        "Correction rules:\n"
+        "- Only correct meaningful errors.\n"
+        "- Do not correct minor stylistic differences.\n"
+        "- Explanations must be very brief hints (3–5 words).\n"
+        "- Do not repeat yourself.\n"
+        "- No full grammar explanations.\n\n"
+
+        "Language level:\n"
+        "- Adapt difficulty to the user's level.\n"
+        "- Prefer clear, natural phrasing.\n\n"
+
+        "Return ONLY valid JSON using this schema:\n"
+        "{\n"
+        '  "assistant_response": "Conversational reply to the user",\n'
+        '  "correction": {\n'
+        '    "corrected": "Corrected version of user message",\n'
+        '    "notes": ["Short Explanation of error 1", "Short Explanation of error 2"]\n'
+        "  }\n"
+        "}\n\n"
+
+        "If the user's message contains no errors, set \"correction\" to null."
+        " Do not put any corrections or explanations in `assistant_response`,"
+        " that is exclusively for the continuation of the conversation."
+    )
+    return system_prompt
+
 
 def get_dummy_completion(prompt: str) -> str:
     if not settings.openai_api_key:
@@ -29,10 +75,11 @@ def get_chat_turn(
     """
     Build a chat turn response.
 
-    Returns a dict matching the assistant message content shape:
+    Returns a dict with assistant content and user correction payload:
       {
         "assistant_response": "...",
-        "correction": {"corrected": "...", "notes": [...]} | null
+        "correction": {"corrected": "...", "notes": [...]} | null,
+        "status": "complete" | "failed"
       }
     """
     lang_ctx = ""
@@ -78,10 +125,12 @@ def get_chat_turn(
         return {
             "assistant_response": data.get("assistant_response", ""),
             "correction": data.get("correction"),
+            "status": "complete",
         }
     except Exception:
         logger.exception("OpenAI chat turn failed")
         return {
             "assistant_response": "Sorry, I couldn't process that. Please try again.",
             "correction": None,
+            "status": "failed",
         }
