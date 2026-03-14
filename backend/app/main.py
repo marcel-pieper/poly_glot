@@ -6,6 +6,7 @@ from fastapi import FastAPI, Request
 
 from app.api.routes_ai import router as ai_router
 from app.api.routes_auth import router as auth_router
+from app.api.routes_chat import router as chat_router
 from app.api.routes_users import router as users_router
 from app.core.config import get_settings
 
@@ -66,3 +67,4 @@ def health():
 app.include_router(auth_router, prefix="/api")
 app.include_router(users_router, prefix="/api")
 app.include_router(ai_router, prefix="/api")
+app.include_router(chat_router, prefix="/api")

@@ -4,7 +4,7 @@ export type RootStackParamList = {
   Login: undefined;
   MainTabs: undefined;
   ChatScreen: {
-    chatId: string;
+    threadId: number;
     title: string;
   };
 };

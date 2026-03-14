@@ -1,83 +1,141 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { useEffect, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useCallback, useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
+import { API_BASE_URL, useAuth } from "../contexts/AuthContext";
 import type { RootStackParamList } from "../types/navigation";
-
-const CHAT_LIST_KEY = "polyglot_chat_overview_items";
-
-type ChatOverviewItem = {
-  id: string;
-  title: string;
-  created_at: string;
-};
 
 type RootNav = NativeStackNavigationProp<RootStackParamList>;
 
+type Thread = {
+  id: number;
+  title: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export default function ChatOverviewScreen() {
   const navigation = useNavigation<RootNav>();
-  const [items, setItems] = useState<ChatOverviewItem[]>([]);
+  const { token } = useAuth();
+  const [threads, setThreads] = useState<Thread[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [starting, setStarting] = useState(false);
+
+  const fetchThreads = useCallback(async () => {
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/chat/threads`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error("Failed to load chats");
+      const data = await res.json();
+      setThreads(data.threads ?? []);
+    } catch (err) {
+      Alert.alert("Error", err instanceof Error ? err.message : "Could not load chats");
+    }
+  }, [token]);
 
   useEffect(() => {
     (async () => {
-      const raw = await AsyncStorage.getItem(CHAT_LIST_KEY);
-      if (!raw) return;
-      try {
-        const parsed = JSON.parse(raw) as ChatOverviewItem[];
-        setItems(Array.isArray(parsed) ? parsed : []);
-      } catch {
-        // Keep screen functional if local data is corrupted.
-        setItems([]);
-      }
+      setLoading(true);
+      await fetchThreads();
+      setLoading(false);
     })();
-  }, []);
+  }, [fetchThreads]);
 
-  const persistItems = async (nextItems: ChatOverviewItem[]) => {
-    setItems(nextItems);
-    await AsyncStorage.setItem(CHAT_LIST_KEY, JSON.stringify(nextItems));
-  };
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchThreads();
+    setRefreshing(false);
+  }, [fetchThreads]);
 
   const startChat = async () => {
-    const nextChatNumber = items.length + 1;
-    const now = new Date().toISOString();
-    const newChat: ChatOverviewItem = {
-      id: `${Date.now()}`,
-      title: `Chat ${nextChatNumber}`,
-      created_at: now,
-    };
-    const nextItems = [newChat, ...items];
-    await persistItems(nextItems);
-    navigation.navigate("ChatScreen", { chatId: newChat.id, title: newChat.title });
+    if (!token) return;
+    setStarting(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/chat/threads`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ title: null }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        const detail = body?.detail ?? "Could not create chat";
+        Alert.alert("Error", typeof detail === "string" ? detail : JSON.stringify(detail));
+        return;
+      }
+      const thread: Thread = await res.json();
+      setThreads((prev) => [thread, ...prev]);
+      navigation.navigate("ChatScreen", { threadId: thread.id, title: `Chat ${thread.id}` });
+    } catch (err) {
+      Alert.alert("Error", err instanceof Error ? err.message : "Could not create chat");
+    } finally {
+      setStarting(false);
+    }
   };
 
-  const openChat = (item: ChatOverviewItem) => {
-    navigation.navigate("ChatScreen", { chatId: item.id, title: item.title });
+  const openChat = (thread: Thread) => {
+    navigation.navigate("ChatScreen", {
+      threadId: thread.id,
+      title: thread.title ?? `Chat ${thread.id}`,
+    });
   };
+
+  if (loading) {
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator size="large" color="#2563eb" />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
-      <Pressable style={({ pressed }) => [styles.startButton, pressed && styles.startButtonPressed]} onPress={startChat}>
-        <Text style={styles.startButtonText}>Start Chat</Text>
+      <Pressable
+        style={({ pressed }) => [styles.startButton, (pressed || starting) && styles.startButtonPressed]}
+        onPress={startChat}
+        disabled={starting}
+      >
+        {starting ? (
+          <ActivityIndicator color="#ffffff" />
+        ) : (
+          <Text style={styles.startButtonText}>Start Chat</Text>
+        )}
       </Pressable>
 
       <Text style={styles.sectionTitle}>Previous chats</Text>
-      <ScrollView contentContainerStyle={styles.listContent}>
-        {items.length === 0 ? (
+      <ScrollView
+        contentContainerStyle={styles.listContent}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      >
+        {threads.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyStateTitle}>No chats yet</Text>
             <Text style={styles.emptyStateSub}>Start your first chat to see it here.</Text>
           </View>
         ) : (
-          items.map((item) => (
+          threads.map((thread) => (
             <Pressable
-              key={item.id}
-              onPress={() => openChat(item)}
+              key={thread.id}
+              onPress={() => openChat(thread)}
               style={({ pressed }) => [styles.chatRow, pressed && styles.chatRowPressed]}
             >
-              <Text style={styles.chatTitle}>{item.title}</Text>
-              <Text style={styles.chatMeta}>{new Date(item.created_at).toLocaleString()}</Text>
+              <Text style={styles.chatTitle}>{thread.title ?? `Chat ${thread.id}`}</Text>
+              <Text style={styles.chatMeta}>{new Date(thread.updated_at).toLocaleString()}</Text>
             </Pressable>
           ))
         )}
@@ -92,6 +150,12 @@ const styles = StyleSheet.create({
     backgroundColor: "#f8fafc",
     padding: 16,
   },
+  centered: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#f8fafc",
+  },
   startButton: {
     backgroundColor: "#2563eb",
     borderRadius: 10,
@@ -100,7 +164,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   startButtonPressed: {
-    opacity: 0.9,
+    opacity: 0.75,
   },
   startButtonText: {
     color: "#ffffff",

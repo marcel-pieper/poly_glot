@@ -30,7 +30,7 @@ class Thread(Base):
     )
     title: Mapped[str | None] = mapped_column(String(255), nullable=True)
     type: Mapped[ThreadType] = mapped_column(
-        SqlEnum(ThreadType, name="thread_type_enum"),
+        SqlEnum(ThreadType, name="thread_type_enum", values_callable=lambda obj: [e.value for e in obj]),
         nullable=False,
         index=True,
     )
