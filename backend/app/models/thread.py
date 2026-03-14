@@ -20,7 +20,11 @@ class Thread(Base):
     __tablename__ = "threads"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    learning_space_id: Mapped[int] = mapped_column(
+        ForeignKey("learning_spaces.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
     parent_thread_id: Mapped[int | None] = mapped_column(
         ForeignKey("threads.id", ondelete="SET NULL"), nullable=True, index=True
     )

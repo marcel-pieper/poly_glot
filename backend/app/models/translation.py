@@ -10,7 +10,11 @@ class Translation(Base):
     __tablename__ = "translations"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    learning_space_id: Mapped[int] = mapped_column(
+        ForeignKey("learning_spaces.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
     from_text: Mapped[str] = mapped_column(Text, nullable=False)
     to_text: Mapped[str] = mapped_column(Text, nullable=False)
     from_language: Mapped[str] = mapped_column(String(32), nullable=False)
