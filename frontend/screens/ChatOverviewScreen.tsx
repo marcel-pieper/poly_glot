@@ -30,6 +30,7 @@ export default function ChatOverviewScreen() {
   const [threads, setThreads] = useState<Thread[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [deletingThreadId, setDeletingThreadId] = useState<number | null>(null);
 
   const fetchThreads = useCallback(async () => {
     if (!token) return;
@@ -78,6 +79,54 @@ export default function ChatOverviewScreen() {
     });
   };
 
+  const deleteThread = useCallback(
+    async (thread: Thread) => {
+      if (!token) return;
+      setDeletingThreadId(thread.id);
+      try {
+        const res = await fetch(`${API_BASE_URL}/chat/threads/${thread.id}`, {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          const detail = (body as { detail?: unknown }).detail ?? "Could not delete chat";
+          throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
+        }
+        setThreads((prev) => prev.filter((t) => t.id !== thread.id));
+      } catch (err) {
+        Alert.alert("Delete failed", err instanceof Error ? err.message : "Could not delete chat");
+      } finally {
+        setDeletingThreadId((current) => (current === thread.id ? null : current));
+      }
+    },
+    [token],
+  );
+
+  const openThreadMenu = useCallback(
+    (thread: Thread) => {
+      if (deletingThreadId !== null) return;
+      Alert.alert("Chat options", thread.title ?? `Chat ${thread.id}`, [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => {
+            Alert.alert(
+              "Delete chat?",
+              "This will permanently remove this conversation.",
+              [
+                { text: "Cancel", style: "cancel" },
+                { text: "Delete", style: "destructive", onPress: () => void deleteThread(thread) },
+              ],
+            );
+          },
+        },
+      ]);
+    },
+    [deleteThread, deletingThreadId],
+  );
+
   if (loading) {
     return (
       <View style={styles.centered}>
@@ -110,7 +159,14 @@ export default function ChatOverviewScreen() {
             <Pressable
               key={thread.id}
               onPress={() => openChat(thread)}
-              style={({ pressed }) => [styles.chatRow, pressed && styles.chatRowPressed]}
+              onLongPress={() => openThreadMenu(thread)}
+              delayLongPress={250}
+              disabled={deletingThreadId !== null}
+              style={({ pressed }) => [
+                styles.chatRow,
+                pressed && styles.chatRowPressed,
+                deletingThreadId === thread.id && styles.chatRowDeleting,
+              ]}
             >
               <Text style={styles.chatTitle}>{thread.title ?? `Chat ${thread.id}`}</Text>
               <Text style={styles.chatMeta}>{new Date(thread.updated_at).toLocaleString()}</Text>
@@ -185,6 +241,9 @@ const styles = StyleSheet.create({
   },
   chatRowPressed: {
     opacity: 0.9,
+  },
+  chatRowDeleting: {
+    opacity: 0.5,
   },
   chatTitle: {
     fontSize: 15,

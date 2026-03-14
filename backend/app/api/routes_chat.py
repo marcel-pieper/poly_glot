@@ -82,6 +82,17 @@ def list_messages(
     return MessageListResponse(messages=list(messages))
 
 
+@router.delete("/threads/{thread_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_thread(
+    thread_id: int,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    thread = require_user_thread(thread_id, user, db, required_type=ThreadType.CHAT)
+    db.delete(thread)
+    db.commit()
+
+
 @router.post("/messages", response_model=SendMessageResponse, status_code=status.HTTP_201_CREATED)
 def send_message(
     payload: SendMessageRequest,
