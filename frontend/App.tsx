@@ -2,7 +2,6 @@ import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { StatusBar } from "expo-status-bar";
 import { ActivityIndicator, View } from "react-native";
-import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import ChatScreen from "./screens/ChatScreen";
@@ -54,12 +53,10 @@ function AppContent() {
 export default function App() {
   return (
     <SafeAreaProvider>
-      <KeyboardProvider>
-        <AuthProvider>
-          <StatusBar style="dark" />
-          <AppContent />
-        </AuthProvider>
-      </KeyboardProvider>
+      <AuthProvider>
+        <StatusBar style="dark" />
+        <AppContent />
+      </AuthProvider>
     </SafeAreaProvider>
   );
 }

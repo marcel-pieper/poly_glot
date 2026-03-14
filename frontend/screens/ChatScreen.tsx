@@ -4,14 +4,18 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
-  KeyboardAvoidingView,
+  Keyboard,
+  LayoutAnimation,
   Platform,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
+  UIManager,
   View,
 } from "react-native";
+
+if (Platform.OS === "android") UIManager.setLayoutAnimationEnabledExperimental?.(true);
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { API_BASE_URL, useAuth } from "../contexts/AuthContext";
@@ -44,6 +48,7 @@ export default function ChatScreen({ route }: Props) {
   const [loadingMessages, setLoadingMessages] = useState(true);
   const [inputText, setInputText] = useState("");
   const [sending, setSending] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   const flatListRef = useRef<FlatList>(null);
 
@@ -65,9 +70,36 @@ export default function ChatScreen({ route }: Props) {
     (async () => {
       setLoadingMessages(true);
       await fetchMessages();
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 100);
       setLoadingMessages(false);
     })();
-  }, [fetchMessages]);
+  }, [fetchMessages, flatListRef]);
+
+  useEffect(() => {
+    const show = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
+      (e) => {
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+        setKeyboardHeight(e.endCoordinates.height);
+        setTimeout(() => {
+          flatListRef.current?.scrollToEnd({ animated: true });
+        }, 100);
+      },
+    );
+    const hide = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide",
+      () => {
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+        setKeyboardHeight(0);
+      },
+    );
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
 
   const sendMessage = async () => {
     const text = inputText.trim();
@@ -115,7 +147,6 @@ export default function ChatScreen({ route }: Props) {
     const content = item.content as Record<string, unknown>;
 
     if (isUser) {
-      console.log("content", content);
       const text = (content.text as string) ?? "";
       const correction = content.correction as Correction | null | undefined;
       const rawStatus = content.correction_status as "pending" | "complete" | "failed" | undefined;
@@ -179,11 +210,7 @@ export default function ChatScreen({ route }: Props) {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={85}
-    >
+    <View style={[styles.container, { paddingBottom: keyboardHeight }]}>
       <FlatList
         ref={flatListRef}
         data={messages}
@@ -191,7 +218,6 @@ export default function ChatScreen({ route }: Props) {
         renderItem={renderMessage}
         contentContainerStyle={styles.messageList}
         onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
-        onLayout={() => flatListRef.current?.scrollToEnd({ animated: true })}
         ListEmptyComponent={
           <View style={styles.emptyChat}>
             <Text style={styles.emptyChatText}>Send a message to start the conversation.</Text>
@@ -222,7 +248,7 @@ export default function ChatScreen({ route }: Props) {
           )}
         </Pressable>
       </View>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
