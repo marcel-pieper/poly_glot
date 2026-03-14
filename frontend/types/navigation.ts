@@ -8,6 +8,9 @@ export type RootStackParamList = {
     title?: string;
   };
   ExplainScreen: {
+    sourceThreadId: number;
+    sourceMessageId: number;
+    explainThreadId?: number;
     messageText: string;
     correctionStatus: "pending" | "complete" | "failed";
     correction: {

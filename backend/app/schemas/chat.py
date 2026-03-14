@@ -20,10 +20,9 @@ class ThreadListResponse(BaseModel):
     total: int
 
 
-class CreateExplainThreadRequest(BaseModel):
+class ExplainThreadSeed(BaseModel):
     source_thread_id: int
     source_message_id: int
-    title: str | None = None
 
 
 class MessageOut(BaseModel):
@@ -43,6 +42,12 @@ class MessageListResponse(BaseModel):
 class SendMessageRequest(BaseModel):
     text: str
     thread_id: int | None = None
+
+
+class ExplainSendMessageRequest(BaseModel):
+    text: str
+    thread_id: int | None = None
+    seed: ExplainThreadSeed | None = None
 
 
 class SendMessageResponse(BaseModel):

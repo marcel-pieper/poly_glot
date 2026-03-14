@@ -1,5 +1,4 @@
 import logging
-from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, select
@@ -10,7 +9,6 @@ from app.api.thread_access import require_user_thread
 from app.db.session import get_db
 from app.models.language_space import LanguageSpace
 from app.models.message import Message, MessageRole
-from app.models.supported_language import SupportedLanguage
 from app.models.thread import Thread, ThreadType
 from app.models.user import User
 from app.schemas.chat import (
@@ -21,6 +19,13 @@ from app.schemas.chat import (
     ThreadListResponse,
 )
 from app.services.openai_service import get_chat_turn
+from app.services.thread_turns import (
+    build_llm_history,
+    create_pending_user_message,
+    finalize_turn,
+    load_thread_history,
+    resolve_language_codes,
+)
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 logger = logging.getLogger("polyglot.chat")
@@ -102,36 +107,9 @@ def send_message(
         thread_id = thread.id
         logger.info("Thread %s created for user %s", thread_id, user.id)
 
-    user_msg = Message(
-        thread_id=thread_id,
-        role=MessageRole.USER,
-        content={"text": payload.text, "correction_status": "pending", "correction": None},
-    )
-    db.add(user_msg)
-    db.flush()
-
-    history = (
-        db.execute(
-            select(Message)
-            .where(Message.thread_id == thread_id)
-            .order_by(Message.id.asc())
-            .limit(20)
-        )
-        .scalars()
-        .all()
-    )
-
-    space = db.get(LanguageSpace, thread.language_space_id)
-    target_lang_code: str | None = None
-    native_lang_code: str | None = None
-    if space:
-        target_lang = db.get(SupportedLanguage, space.target_language_id)
-        if target_lang:
-            target_lang_code = target_lang.code
-    if user.native_language_id:
-        native_lang = db.get(SupportedLanguage, user.native_language_id)
-        if native_lang:
-            native_lang_code = native_lang.code
+    user_msg = create_pending_user_message(db, thread_id=thread_id, text=payload.text)
+    history = load_thread_history(db, thread_id=thread_id, limit=20)
+    target_lang_code, native_lang_code = resolve_language_codes(db, thread=thread, user=user)
 
     logger.info(
         "Calling OpenAI for thread %s (target=%s native=%s)",
@@ -140,29 +118,19 @@ def send_message(
         native_lang_code,
     )
     ai_content = get_chat_turn(
-        history=[{"role": m.role.value, "content": m.content} for m in history],
+        history=build_llm_history(history),
         target_language=target_lang_code,
         native_language=native_lang_code,
     )
     logger.info("AI content: %s", ai_content)
 
-    user_msg.content = {
-        "text": payload.text,
-        "correction_status": ai_content.get("status", "failed"),
-        "correction": ai_content.get("correction"),
-    }
-
-    assistant_msg = Message(
-        thread_id=thread_id,
-        role=MessageRole.ASSISTANT,
-        content={"assistant_response": ai_content.get("assistant_response", "")},
+    user_msg, assistant_msg = finalize_turn(
+        db,
+        thread=thread,
+        user_msg=user_msg,
+        input_text=payload.text,
+        ai_content=ai_content,
     )
-    db.add(assistant_msg)
-
-    thread.updated_at = datetime.now(timezone.utc)
-    db.commit()
-    db.refresh(user_msg)
-    db.refresh(assistant_msg)
 
     logger.info("Message pair persisted for thread %s", thread_id)
     return SendMessageResponse(

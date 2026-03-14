@@ -1,6 +1,8 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
+  ActivityIndicator,
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -10,13 +12,137 @@ import {
 } from "react-native";
 
 import KeyboardAwareLayout from "../components/KeyboardAwareLayout";
+import { API_BASE_URL, useAuth } from "../contexts/AuthContext";
 import type { RootStackParamList } from "../types/navigation";
 
 type Props = NativeStackScreenProps<RootStackParamList, "ExplainScreen">;
 
-export default function ExplainScreen({ route }: Props) {
-  const { messageText, correctionStatus, correction } = route.params;
+type MessageContent =
+  | { text: string; correction_status?: "pending" | "complete" | "failed"; correction?: unknown }
+  | { assistant_response: string };
+
+type ExplainMessage = {
+  id: number;
+  role: "user" | "assistant" | string;
+  content: MessageContent;
+  created_at: string;
+};
+
+export default function ExplainScreen({ route, navigation }: Props) {
+  const { sourceThreadId, sourceMessageId, messageText, correctionStatus, correction } = route.params;
+  const { token } = useAuth();
   const [question, setQuestion] = useState("");
+  const [messages, setMessages] = useState<ExplainMessage[]>([]);
+  const [sending, setSending] = useState(false);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [explainThreadId, setExplainThreadId] = useState<number | undefined>(route.params.explainThreadId);
+
+  useEffect(() => {
+    setExplainThreadId(route.params.explainThreadId);
+  }, [route.params.explainThreadId]);
+
+  const fetchMessages = useCallback(async () => {
+    if (!token || !explainThreadId) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/explain/threads/${explainThreadId}/messages`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error("Failed to load explain messages");
+      const data = await res.json();
+      setMessages(data.messages ?? []);
+    } catch (err) {
+      Alert.alert("Error", err instanceof Error ? err.message : "Could not load explain messages");
+    }
+  }, [token, explainThreadId]);
+
+  useEffect(() => {
+    if (!explainThreadId) return;
+    (async () => {
+      setLoadingMessages(true);
+      await fetchMessages();
+      setLoadingMessages(false);
+    })();
+  }, [fetchMessages, explainThreadId]);
+
+  const askQuestion = async () => {
+    const text = question.trim();
+    if (!text || sending || !token) return;
+
+    setQuestion("");
+    setSending(true);
+
+    const optimisticUserMsg: ExplainMessage = {
+      id: Date.now(),
+      role: "user",
+      content: { text, correction_status: "pending", correction: null },
+      created_at: new Date().toISOString(),
+    };
+    setMessages((prev) => [...prev, optimisticUserMsg]);
+
+    try {
+      const body: Record<string, unknown> = { text, thread_id: explainThreadId };
+      if (!explainThreadId) {
+        body.seed = {
+          source_thread_id: sourceThreadId,
+          source_message_id: sourceMessageId,
+        };
+      }
+      const res = await fetch(`${API_BASE_URL}/explain/messages`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const errorBody = await res.json().catch(() => ({}));
+        throw new Error(errorBody?.detail ?? "Failed to send explain message");
+      }
+      const data = await res.json();
+      if (!explainThreadId && typeof data.thread_id === "number") {
+        setExplainThreadId(data.thread_id);
+        navigation.setParams({ explainThreadId: data.thread_id });
+      }
+      setMessages((prev) => {
+        const withoutOptimistic = prev.filter((m) => m.id !== optimisticUserMsg.id);
+        return [...withoutOptimistic, data.user_message, data.assistant_message];
+      });
+    } catch (err) {
+      setMessages((prev) => prev.filter((m) => m.id !== optimisticUserMsg.id));
+      Alert.alert("Error", err instanceof Error ? err.message : "Could not send explain message");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const renderThreadMessages = () => {
+    if (loadingMessages) {
+      return (
+        <View style={styles.threadLoading}>
+          <ActivityIndicator size="small" color="#2563eb" />
+        </View>
+      );
+    }
+    if (messages.length === 0) return null;
+
+    return (
+      <View style={styles.threadBlock}>
+        {messages.map((msg) => {
+          const content = msg.content as Record<string, unknown>;
+          const text = msg.role === "assistant"
+            ? ((content.assistant_response as string) ?? "")
+            : ((content.text as string) ?? "");
+          const isAssistant = msg.role === "assistant";
+          return (
+            <View key={msg.id} style={[styles.msgBubble, isAssistant ? styles.assistantBubble : styles.userBubble]}>
+              <Text style={isAssistant ? styles.assistantText : styles.userText}>{text}</Text>
+            </View>
+          );
+        })}
+      </View>
+    );
+  };
 
   return (
     <KeyboardAwareLayout
@@ -34,8 +160,12 @@ export default function ExplainScreen({ route }: Props) {
               placeholderTextColor="#94a3b8"
               multiline
             />
-            <Pressable style={styles.askButton}>
-              <Text style={styles.askButtonText}>Ask</Text>
+            <Pressable
+              style={({ pressed }) => [styles.askButton, (pressed || sending) && styles.askButtonPressed]}
+              onPress={askQuestion}
+              disabled={sending || !question.trim()}
+            >
+              {sending ? <ActivityIndicator size="small" color="#ffffff" /> : <Text style={styles.askButtonText}>Ask</Text>}
             </Pressable>
           </View>
         </>
@@ -63,6 +193,7 @@ export default function ExplainScreen({ route }: Props) {
             <Text style={styles.metaText}>No correction needed.</Text>
           )}
         </View>
+        {renderThreadMessages()}
       </ScrollView>
     </KeyboardAwareLayout>
   );
@@ -159,9 +290,46 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 16,
   },
+  askButtonPressed: {
+    opacity: 0.75,
+  },
   askButtonText: {
     color: "#ffffff",
     fontWeight: "700",
     fontSize: 14,
+  },
+  threadLoading: {
+    paddingTop: 12,
+    alignItems: "center",
+  },
+  threadBlock: {
+    marginTop: 12,
+    gap: 8,
+  },
+  msgBubble: {
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    maxWidth: "90%",
+  },
+  assistantBubble: {
+    alignSelf: "flex-start",
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    backgroundColor: "#ffffff",
+  },
+  userBubble: {
+    alignSelf: "flex-end",
+    backgroundColor: "#2563eb",
+  },
+  assistantText: {
+    color: "#0f172a",
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  userText: {
+    color: "#ffffff",
+    fontSize: 14,
+    lineHeight: 20,
   },
 });

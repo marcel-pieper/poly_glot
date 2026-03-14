@@ -145,30 +145,16 @@ export default function ChatScreen({ route, navigation }: Props) {
       const text = (content.text as string) ?? "";
       const correction = content.correction as Correction | null | undefined;
       const rawStatus = content.correction_status as "pending" | "complete" | "failed" | undefined;
-      const correctionStatus =
-        rawStatus ?? (correction ? "complete" : undefined);
+      const correctionStatus = rawStatus ?? (correction ? "complete" : undefined);
+      const canOpenExplain = typeof currentThreadId === "number" && correctionStatus === "complete";
       return (
         <View style={styles.userContainer}>
           <View style={[styles.bubble, styles.userBubble]}>
             <Text style={styles.userText}>{text}</Text>
           </View>
           {correctionStatus === "pending" && (
-            <View style={styles.correctionBox}>
-              <View style={styles.correctionHeaderRow}>
-                <Text style={styles.correctionLabel}>Correction</Text>
-                <Pressable
-                  onPress={() =>
-                    openExplain({
-                      messageText: text,
-                      correctionStatus: "pending",
-                      correction: null,
-                    })
-                  }
-                >
-                  <Text style={styles.explainLink}>Explain</Text>
-                </Pressable>
-              </View>
-              <Text style={styles.correctionNote}>Generating correction...</Text>
+            <View style={styles.noCorrectionRow}>
+              <ActivityIndicator size="small" color="#64748b" />
             </View>
           )}
           {correctionStatus === "failed" && (
@@ -189,10 +175,12 @@ export default function ChatScreen({ route, navigation }: Props) {
                 <Pressable onPress={() => toggleCorrectionExpanded(item.id)} hitSlop={8}>
                   <Text style={styles.chevronToggle}>{isExpanded ? "^" : ">"}</Text>
                 </Pressable>
-                {isExpanded && (
+                {isExpanded && canOpenExplain && (
                   <Pressable
                     onPress={() =>
                       openExplain({
+                        sourceThreadId: currentThreadId,
+                        sourceMessageId: item.id,
                         messageText: text,
                         correctionStatus: "complete",
                         correction,
