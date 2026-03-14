@@ -44,7 +44,7 @@ function AppContent() {
         <Stack.Screen
           name="ChatScreen"
           component={ChatScreen}
-          options={({ route }) => ({ title: route.params.title })}
+          options={({ route }) => ({ title: route.params.title ?? "New chat" })}
         />
         <Stack.Screen
           name="ExplainScreen"

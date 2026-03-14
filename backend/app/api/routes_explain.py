@@ -14,20 +14,66 @@ from app.models.supported_language import SupportedLanguage
 from app.models.thread import Thread, ThreadType
 from app.models.user import User
 from app.schemas.chat import (
+    CreateExplainThreadRequest,
     MessageListResponse,
     MessageOut,
     SendMessageRequest,
     SendMessageResponse,
     ThreadListResponse,
+    ThreadOut,
 )
-from app.services.openai_service import get_chat_turn
+from app.services.openai_service import get_explain_turn
 
-router = APIRouter(prefix="/chat", tags=["chat"])
-logger = logging.getLogger("polyglot.chat")
+router = APIRouter(prefix="/explain", tags=["explain"])
+logger = logging.getLogger("polyglot.explain")
+
+
+@router.post("/threads", response_model=ThreadOut, status_code=status.HTTP_201_CREATED)
+def create_explain_thread(
+    payload: CreateExplainThreadRequest,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    source_thread = require_user_thread(payload.source_thread_id, user, db)
+
+    source_message = (
+        db.execute(
+            select(Message)
+            .where(Message.id == payload.source_message_id)
+            .where(Message.thread_id == source_thread.id)
+        )
+        .scalars()
+        .first()
+    )
+    if not source_message:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Source message not found")
+    if source_message.role != MessageRole.USER:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Source message must be a user message")
+
+    source_content = source_message.content if isinstance(source_message.content, dict) else {}
+    seed = {
+        "source_thread_id": source_thread.id,
+        "source_message_id": source_message.id,
+        "source_text": source_content.get("text", ""),
+        "correction": source_content.get("correction"),
+    }
+
+    thread = Thread(
+        language_space_id=source_thread.language_space_id,
+        parent_thread_id=source_thread.id,
+        type=ThreadType.EXPLAIN,
+        title=payload.title,
+        seed=seed,
+    )
+    db.add(thread)
+    db.commit()
+    db.refresh(thread)
+    logger.info("Explain thread %s created from source thread %s", thread.id, source_thread.id)
+    return thread
 
 
 @router.get("/threads", response_model=ThreadListResponse)
-def list_threads(
+def list_explain_threads(
     limit: int = 50,
     offset: int = 0,
     user: User = Depends(current_user),
@@ -37,32 +83,23 @@ def list_threads(
         select(Thread)
         .join(LanguageSpace, Thread.language_space_id == LanguageSpace.id)
         .where(LanguageSpace.user_id == user.id)
-        .where(Thread.type == ThreadType.CHAT)
-        .where(
-            select(Message.id)
-            .where(Message.thread_id == Thread.id)
-            .where(Message.role == MessageRole.USER)
-            .exists()
-        )
+        .where(Thread.type == ThreadType.EXPLAIN)
     )
     total: int = db.execute(select(func.count()).select_from(base_q.subquery())).scalar_one()
-    threads = (
-        db.execute(base_q.order_by(Thread.id.desc()).limit(limit).offset(offset))
-        .scalars()
-        .all()
-    )
+    threads = db.execute(base_q.order_by(Thread.id.desc()).limit(limit).offset(offset)).scalars().all()
     return ThreadListResponse(threads=list(threads), total=total)
 
 
 @router.get("/threads/{thread_id}/messages", response_model=MessageListResponse)
-def list_messages(
+def list_explain_messages(
     thread_id: int,
     limit: int = 50,
     offset: int = 0,
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
-    require_user_thread(thread_id, user, db, required_type=ThreadType.CHAT)
+    thread = require_user_thread(thread_id, user, db, required_type=ThreadType.EXPLAIN)
+
     messages = (
         db.execute(
             select(Message)
@@ -77,30 +114,14 @@ def list_messages(
     return MessageListResponse(messages=list(messages))
 
 
-@router.post("/messages", response_model=SendMessageResponse, status_code=status.HTTP_201_CREATED)
-def send_message(
+@router.post("/threads/{thread_id}/messages", response_model=SendMessageResponse, status_code=status.HTTP_201_CREATED)
+def send_explain_message(
+    thread_id: int,
     payload: SendMessageRequest,
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
-    thread_id = payload.thread_id
-    if thread_id is not None:
-        thread = require_user_thread(thread_id, user, db, required_type=ThreadType.CHAT)
-    else:
-        if not user.active_language_space_id:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Set an active learning language before starting a chat",
-            )
-        thread = Thread(
-            language_space_id=user.active_language_space_id,
-            type=ThreadType.CHAT,
-            title=None,
-        )
-        db.add(thread)
-        db.flush()
-        thread_id = thread.id
-        logger.info("Thread %s created for user %s", thread_id, user.id)
+    thread = require_user_thread(thread_id, user, db, required_type=ThreadType.EXPLAIN)
 
     user_msg = Message(
         thread_id=thread_id,
@@ -111,12 +132,7 @@ def send_message(
     db.flush()
 
     history = (
-        db.execute(
-            select(Message)
-            .where(Message.thread_id == thread_id)
-            .order_by(Message.id.asc())
-            .limit(20)
-        )
+        db.execute(select(Message).where(Message.thread_id == thread_id).order_by(Message.id.asc()).limit(20))
         .scalars()
         .all()
     )
@@ -133,18 +149,12 @@ def send_message(
         if native_lang:
             native_lang_code = native_lang.code
 
-    logger.info(
-        "Calling OpenAI for thread %s (target=%s native=%s)",
-        thread_id,
-        target_lang_code,
-        native_lang_code,
-    )
-    ai_content = get_chat_turn(
+    ai_content = get_explain_turn(
         history=[{"role": m.role.value, "content": m.content} for m in history],
+        seed=thread.seed,
         target_language=target_lang_code,
         native_language=native_lang_code,
     )
-    logger.info("AI content: %s", ai_content)
 
     user_msg.content = {
         "text": payload.text,
@@ -163,10 +173,8 @@ def send_message(
     db.commit()
     db.refresh(user_msg)
     db.refresh(assistant_msg)
-
-    logger.info("Message pair persisted for thread %s", thread_id)
+    logger.info("Explain message pair persisted for thread %s", thread_id)
     return SendMessageResponse(
-        thread_id=thread_id,
         user_message=MessageOut.model_validate(user_msg, from_attributes=True),
         assistant_message=MessageOut.model_validate(assistant_msg, from_attributes=True),
     )

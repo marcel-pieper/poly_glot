@@ -1,4 +1,4 @@
-import { useNavigation } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -30,7 +30,6 @@ export default function ChatOverviewScreen() {
   const [threads, setThreads] = useState<Thread[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [starting, setStarting] = useState(false);
 
   const fetchThreads = useCallback(async () => {
     if (!token) return;
@@ -54,38 +53,22 @@ export default function ChatOverviewScreen() {
     })();
   }, [fetchThreads]);
 
+  useFocusEffect(
+    useCallback(() => {
+      if (!loading) {
+        void fetchThreads();
+      }
+    }, [fetchThreads, loading]),
+  );
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await fetchThreads();
     setRefreshing(false);
   }, [fetchThreads]);
 
-  const startChat = async () => {
-    if (!token) return;
-    setStarting(true);
-    try {
-      const res = await fetch(`${API_BASE_URL}/chat/threads`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ title: null }),
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        const detail = body?.detail ?? "Could not create chat";
-        Alert.alert("Error", typeof detail === "string" ? detail : JSON.stringify(detail));
-        return;
-      }
-      const thread: Thread = await res.json();
-      setThreads((prev) => [thread, ...prev]);
-      navigation.navigate("ChatScreen", { threadId: thread.id, title: `Chat ${thread.id}` });
-    } catch (err) {
-      Alert.alert("Error", err instanceof Error ? err.message : "Could not create chat");
-    } finally {
-      setStarting(false);
-    }
+  const startChat = () => {
+    navigation.navigate("ChatScreen", { title: "New chat" });
   };
 
   const openChat = (thread: Thread) => {
@@ -106,15 +89,10 @@ export default function ChatOverviewScreen() {
   return (
     <View style={styles.container}>
       <Pressable
-        style={({ pressed }) => [styles.startButton, (pressed || starting) && styles.startButtonPressed]}
+        style={({ pressed }) => [styles.startButton, pressed && styles.startButtonPressed]}
         onPress={startChat}
-        disabled={starting}
       >
-        {starting ? (
-          <ActivityIndicator color="#ffffff" />
-        ) : (
-          <Text style={styles.startButtonText}>Start Chat</Text>
-        )}
+        <Text style={styles.startButtonText}>Start Chat</Text>
       </Pressable>
 
       <Text style={styles.sectionTitle}>Previous chats</Text>

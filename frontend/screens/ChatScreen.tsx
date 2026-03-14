@@ -34,7 +34,7 @@ type ChatMessage = {
 };
 
 export default function ChatScreen({ route, navigation }: Props) {
-  const { threadId } = route.params;
+  const [currentThreadId, setCurrentThreadId] = useState<number | undefined>(route.params.threadId);
   const { token } = useAuth();
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -55,10 +55,18 @@ export default function ChatScreen({ route, navigation }: Props) {
     }));
   };
 
+  useEffect(() => {
+    setCurrentThreadId(route.params.threadId);
+  }, [route.params.threadId]);
+
   const fetchMessages = useCallback(async () => {
     if (!token) return;
+    if (!currentThreadId) {
+      setMessages([]);
+      return;
+    }
     try {
-      const res = await fetch(`${API_BASE_URL}/chat/threads/${threadId}/messages`, {
+      const res = await fetch(`${API_BASE_URL}/chat/threads/${currentThreadId}/messages`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error("Failed to load messages");
@@ -67,7 +75,7 @@ export default function ChatScreen({ route, navigation }: Props) {
     } catch (err) {
       Alert.alert("Error", err instanceof Error ? err.message : "Could not load messages");
     }
-  }, [token, threadId]);
+  }, [token, currentThreadId]);
 
   useEffect(() => {
     (async () => {
@@ -96,19 +104,26 @@ export default function ChatScreen({ route, navigation }: Props) {
     setMessages((prev) => [...prev, optimisticUserMsg]);
 
     try {
-      const res = await fetch(`${API_BASE_URL}/chat/threads/${threadId}/messages`, {
+      const res = await fetch(`${API_BASE_URL}/chat/messages`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({ text, thread_id: currentThreadId }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body?.detail ?? "Failed to send message");
       }
       const data = await res.json();
+      if (!currentThreadId && typeof data.thread_id === "number") {
+        setCurrentThreadId(data.thread_id);
+        navigation.setParams({
+          threadId: data.thread_id,
+          title: `Chat ${data.thread_id}`,
+        });
+      }
       setMessages((prev) => {
         const withoutOptimistic = prev.filter((m) => m.id !== optimisticUserMsg.id);
         return [...withoutOptimistic, data.user_message, data.assistant_message];
@@ -184,7 +199,7 @@ export default function ChatScreen({ route, navigation }: Props) {
                       })
                     }
                   >
-                    <Text style={styles.explainLink}>Explain</Text>
+                    <Text style={styles.explainLink}>{">> Ask"}</Text>
                   </Pressable>
                 )}
               </View>

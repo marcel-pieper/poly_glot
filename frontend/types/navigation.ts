@@ -4,8 +4,8 @@ export type RootStackParamList = {
   Login: undefined;
   MainTabs: undefined;
   ChatScreen: {
-    threadId: number;
-    title: string;
+    threadId?: number;
+    title?: string;
   };
   ExplainScreen: {
     messageText: string;
