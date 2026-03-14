@@ -4,6 +4,7 @@ import { StatusBar } from "expo-status-bar";
 import { ActivityIndicator, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import ChatScreen from "./screens/ChatScreen";
 import HomeTabsScreen from "./screens/HomeTabsScreen";
 import LoginScreen from "./screens/LoginScreen";
 import type { RootStackParamList } from "./types/navigation";
@@ -38,6 +39,11 @@ function AppContent() {
           name="MainTabs"
           component={HomeTabsScreen}
           options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="ChatScreen"
+          component={ChatScreen}
+          options={({ route }) => ({ title: route.params.title })}
         />
       </Stack.Navigator>
     </NavigationContainer>

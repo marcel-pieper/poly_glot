@@ -3,6 +3,10 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 export type RootStackParamList = {
   Login: undefined;
   MainTabs: undefined;
+  ChatScreen: {
+    chatId: string;
+    title: string;
+  };
 };
 
 export type RootStackScreenProps<T extends keyof RootStackParamList> =

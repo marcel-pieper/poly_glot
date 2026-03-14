@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import type { HomeTabParamList } from "../types/navigation";
 import AccountScreen from "./AccountScreen";
+import ChatOverviewScreen from "./ChatOverviewScreen";
 
 const Tab = createBottomTabNavigator<HomeTabParamList>();
 
@@ -60,7 +61,7 @@ export default function HomeTabsScreen() {
         {() => <DummyPage title="Vocab" />}
       </Tab.Screen>
       <Tab.Screen name="ChatTab" options={{ title: "Chat", tabBarLabel: "Chat" }}>
-        {() => <DummyPage title="Chat" />}
+        {() => <ChatOverviewScreen />}
       </Tab.Screen>
       <Tab.Screen
         name="TranslateTab"
