@@ -4,18 +4,17 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native";
+import { KeyboardAvoidingView, KeyboardStickyView } from "react-native-keyboard-controller";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { API_BASE_URL, useAuth } from "../contexts/AuthContext";
 import type { RootStackParamList } from "../types/navigation";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type Props = NativeStackScreenProps<RootStackParamList, "ChatScreen">;
 
@@ -155,11 +154,7 @@ export default function ChatScreen({ route }: Props) {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={80}
-    >
+    <KeyboardAvoidingView behavior="padding" style={styles.container} keyboardVerticalOffset={85}>
       <FlatList
         ref={flatListRef}
         data={messages}
@@ -167,6 +162,7 @@ export default function ChatScreen({ route }: Props) {
         renderItem={renderMessage}
         contentContainerStyle={styles.messageList}
         onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+        onLayout={() => flatListRef.current?.scrollToEnd({ animated: true })}
         ListEmptyComponent={
           <View style={styles.emptyChat}>
             <Text style={styles.emptyChatText}>Send a message to start the conversation.</Text>
