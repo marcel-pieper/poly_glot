@@ -8,6 +8,7 @@ import ChatScreen from "./screens/ChatScreen";
 import ExplainScreen from "./screens/ExplainScreen";
 import HomeTabsScreen from "./screens/HomeTabsScreen";
 import LoginScreen from "./screens/LoginScreen";
+import TranslationScreen from "./screens/TranslationScreen";
 import type { RootStackParamList } from "./types/navigation";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -50,6 +51,11 @@ function AppContent() {
           name="ExplainScreen"
           component={ExplainScreen}
           options={{ title: "Explain" }}
+        />
+        <Stack.Screen
+          name="TranslationScreen"
+          component={TranslationScreen}
+          options={{ title: "Translation" }}
         />
       </Stack.Navigator>
     </NavigationContainer>

@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { HomeTabParamList } from "../types/navigation";
 import AccountScreen from "./AccountScreen";
 import ChatOverviewScreen from "./ChatOverviewScreen";
+import TranslateOverviewScreen from "./TranslateOverviewScreen";
 
 const Tab = createBottomTabNavigator<HomeTabParamList>();
 
@@ -67,7 +68,7 @@ export default function HomeTabsScreen() {
         name="TranslateTab"
         options={{ title: "Translate", tabBarLabel: "Translate" }}
       >
-        {() => <DummyPage title="Translate" />}
+        {() => <TranslateOverviewScreen />}
       </Tab.Screen>
       <Tab.Screen name="DataTab" options={{ title: "Data", tabBarLabel: "Data" }}>
         {() => <AccountScreen />}

@@ -119,6 +119,70 @@ def get_dummy_completion(prompt: str) -> str:
     return completion.output_text or "No response from model."
 
 
+def get_translation(
+    text: str,
+    from_language: str | None = None,
+    to_language: str | None = None,
+    native_language: str | None = None,
+) -> dict:
+    """
+    Translate free text and return a normalized payload:
+      {
+        "translated_text": "...",
+        "status": "complete" | "failed"
+      }
+    """
+    cleaned = text.strip()
+    if not cleaned:
+        return {"translated_text": "", "status": "failed"}
+
+    if not settings.openai_api_key:
+        return {
+            "translated_text": "OpenAI key not configured yet. Translation unavailable.",
+            "status": "failed",
+        }
+
+    logger.info("Translating text to %s", to_language)
+    logger.info("Text: %s", cleaned)
+    system_prompt = (
+        "You are a translation engine for Polyglot. "
+        "Translate the user's text faithfully and naturally. "
+        "Return ONLY valid JSON with schema: "
+        '{"translated_text":"...","status":"complete"}'
+    )
+    user_prompt = (
+        f"Target language: {to_language}\n"
+        "If the text is already in the target language, keep meaning and return a natural phrasing.\n"
+        f"Text:\n{cleaned}"
+    )
+
+    try:
+        client = OpenAI(api_key=settings.openai_api_key)
+        response = client.chat.completions.create(
+            model=settings.openai_model,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            response_format={"type": "json_object"},
+        )
+        raw = response.choices[0].message.content or "{}"
+        data = json.loads(raw)
+        translated = str(data.get("translated_text") or "").strip()
+        if not translated:
+            return {
+                "translated_text": "Sorry, I couldn't translate that right now. Please try again.",
+                "status": "failed",
+            }
+        return {"translated_text": translated, "status": "complete"}
+    except Exception:
+        logger.exception("OpenAI translation failed")
+        return {
+            "translated_text": "Sorry, I couldn't translate that right now. Please try again.",
+            "status": "failed",
+        }
+
+
 def get_chat_turn(
     history: list[dict],
     target_language: str | None = None,

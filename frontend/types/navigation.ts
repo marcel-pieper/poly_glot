@@ -18,6 +18,9 @@ export type RootStackParamList = {
       notes: string[];
     } | null;
   };
+  TranslationScreen: {
+    inputText: string;
+  };
 };
 
 export type RootStackScreenProps<T extends keyof RootStackParamList> =
