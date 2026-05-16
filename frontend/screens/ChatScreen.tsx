@@ -11,6 +11,8 @@ import {
   View,
 } from "react-native";
 
+import { SelectableTranslateText } from "selection-actions";
+
 import KeyboardAwareLayout from "../components/KeyboardAwareLayout";
 import { API_BASE_URL, useAuth } from "../contexts/AuthContext";
 import type { RootStackParamList } from "../types/navigation";
@@ -277,7 +279,18 @@ export default function ChatScreen({ route, navigation }: Props) {
     return (
       <View style={styles.assistantContainer}>
         <View style={[styles.bubble, styles.assistantBubble]}>
-          <Text style={styles.assistantText}>{assistantResponse}</Text>
+          <SelectableTranslateText
+            text={assistantResponse}
+            fontSize={15}
+            color="#0f172a"
+            translateLabel="Translate"
+            style={styles.assistantSelectable}
+            onTranslate={({ text }) => {
+              const trimmed = text.trim();
+              if (!trimmed) return;
+              navigation.navigate("TranslationScreen", { inputText: trimmed });
+            }}
+          />
         </View>
       </View>
     );
@@ -463,6 +476,9 @@ const styles = StyleSheet.create({
     color: "#0f172a",
     fontSize: 15,
     lineHeight: 21,
+  },
+  assistantSelectable: {
+    width: "100%",
   },
   correctionBox: {
     backgroundColor: "#fefce8",
