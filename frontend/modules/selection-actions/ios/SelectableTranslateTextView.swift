@@ -38,16 +38,36 @@ final class SelectableTranslateTextView: ExpoView {
     ])
   }
 
+  override func layoutSubviews() {
+    super.layoutSubviews()
+    guard bounds.width > 0 else { return }
+    textView.textContainer.size = CGSize(width: bounds.width, height: .greatestFiniteMagnitude)
+    textView.invalidateIntrinsicContentSize()
+    invalidateIntrinsicContentSize()
+  }
+
+  override var intrinsicContentSize: CGSize {
+    let fitting = textView.sizeThatFits(
+      CGSize(width: bounds.width > 0 ? bounds.width : UIScreen.main.bounds.width * 0.85,
+             height: .greatestFiniteMagnitude))
+    let h = ceil(fitting.height)
+    return CGSize(width: UIView.noIntrinsicMetric, height: h.isFinite ? h : 0)
+  }
+
   func setText(_ value: String) {
     if textView.text != value {
       textView.text = value
     }
+    textView.invalidateIntrinsicContentSize()
+    invalidateIntrinsicContentSize()
   }
 
   func setFontSize(_ value: Double) {
     let currentSize = textView.font?.pointSize ?? 15
     if Double(currentSize) != value {
       textView.font = UIFont.systemFont(ofSize: CGFloat(value))
+      textView.invalidateIntrinsicContentSize()
+      invalidateIntrinsicContentSize()
     }
   }
 

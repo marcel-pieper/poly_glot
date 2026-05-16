@@ -464,13 +464,15 @@ const styles = StyleSheet.create({
   },
   assistantContainer: {
     alignSelf: "flex-start",
-    maxWidth: "85%",
+    width: "85%",
     gap: 6,
   },
   assistantBubble: {
     backgroundColor: "#ffffff",
     borderWidth: 1,
     borderColor: "#e2e8f0",
+    width: "100%",
+    maxWidth: "100%",
   },
   assistantText: {
     color: "#0f172a",
