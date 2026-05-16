@@ -1,6 +1,6 @@
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -12,12 +12,15 @@ from app.models.message import Message, MessageRole
 from app.models.thread import Thread, ThreadType
 from app.models.user import User
 from app.schemas.chat import (
+    ConversationStarterItem,
+    ConversationStartersResponse,
     MessageListResponse,
     MessageOut,
     SendMessageRequest,
     SendMessageResponse,
     ThreadListResponse,
 )
+from app.services.chat_starters import ChatStarterError, list_starters_for_api, starter_message_text
 from app.services.openai_service import get_chat_turn
 from app.services.thread_turns import (
     build_llm_history,
@@ -29,6 +32,17 @@ from app.services.thread_turns import (
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 logger = logging.getLogger("polyglot.chat")
+
+
+@router.get("/conversation-starters", response_model=ConversationStartersResponse)
+def get_conversation_starters(
+    response: Response,
+    _user: User = Depends(current_user),
+):
+    """Client-facing starters (id + label). Starter prompt text stays server-side."""
+    response.headers["Cache-Control"] = "private, max-age=3600"
+    rows = list_starters_for_api()
+    return ConversationStartersResponse(starters=[ConversationStarterItem(**r) for r in rows])
 
 
 @router.get("/threads", response_model=ThreadListResponse)
@@ -118,7 +132,33 @@ def send_message(
         thread_id = thread.id
         logger.info("Thread %s created for user %s", thread_id, user.id)
 
-    user_msg = create_pending_user_message(db, thread_id=thread_id, text=payload.text)
+    if payload.thread_id is not None and payload.starter_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="conversation starters can only begin a new thread (omit thread_id)",
+        )
+
+    msg_metadata = None
+    if payload.starter_id:
+        sid = payload.starter_id.strip()
+        try:
+            effective_text = starter_message_text(sid)
+        except ChatStarterError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="unknown starter_id",
+            ) from None
+        msg_metadata = {"starter_id": sid}
+    else:
+        effective_text = (payload.text or "").strip()
+
+    user_msg = create_pending_user_message(
+        db,
+        thread_id=thread_id,
+        text=effective_text,
+        metadata=msg_metadata,
+    )
+
     history = load_thread_history(db, thread_id=thread_id, limit=20)
     target_lang_code, native_lang_code = resolve_language_codes(db, thread=thread, user=user)
 
@@ -139,7 +179,7 @@ def send_message(
         db,
         thread=thread,
         user_msg=user_msg,
-        input_text=payload.text,
+        input_text=effective_text,
         ai_content=ai_content,
     )
 
@@ -149,3 +189,4 @@ def send_message(
         user_message=MessageOut.model_validate(user_msg, from_attributes=True),
         assistant_message=MessageOut.model_validate(assistant_msg, from_attributes=True),
     )
+

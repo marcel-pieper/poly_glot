@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -10,11 +11,30 @@ from app.models.thread import Thread
 from app.models.user import User
 
 
-def create_pending_user_message(db: Session, thread_id: int, text: str) -> Message:
+def create_pending_user_message(
+    db: Session,
+    thread_id: int,
+    *,
+    text: str,
+    metadata: dict[str, Any] | None = None,
+) -> Message:
+    starter_id_present = isinstance(metadata, dict) and bool(metadata.get("starter_id"))
+
+    content: dict[str, Any]
+    if starter_id_present:
+        content = {"text": text}
+    else:
+        content = {
+            "text": text,
+            "correction_status": "pending",
+            "correction": None,
+        }
+
     user_msg = Message(
         thread_id=thread_id,
         role=MessageRole.USER,
-        content={"text": text, "correction_status": "pending", "correction": None},
+        content=content,
+        metadata_json=metadata,
     )
     db.add(user_msg)
     db.flush()
@@ -61,11 +81,17 @@ def finalize_turn(
     input_text: str,
     ai_content: dict,
 ) -> tuple[Message, Message]:
-    user_msg.content = {
-        "text": input_text,
-        "correction_status": ai_content.get("status", "failed"),
-        "correction": ai_content.get("correction"),
-    }
+    meta = user_msg.metadata_json or {}
+    is_starter_turn = isinstance(meta.get("starter_id"), str)
+
+    if is_starter_turn:
+        user_msg.content = {"text": input_text}
+    else:
+        user_msg.content = {
+            "text": input_text,
+            "correction_status": ai_content.get("status", "failed"),
+            "correction": ai_content.get("correction"),
+        }
 
     assistant_msg = Message(
         thread_id=thread.id,

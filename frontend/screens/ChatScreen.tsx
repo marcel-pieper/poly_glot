@@ -26,11 +26,18 @@ type MessageContent =
   | { text: string; correction_status?: "pending" | "complete" | "failed"; correction?: Correction | null }
   | { assistant_response: string };
 
+export type ConversationStarterItem = {
+  id: string;
+  display_text: string;
+};
+
 type ChatMessage = {
   id: number;
+  thread_id?: number;
   role: "user" | "assistant" | string;
   content: MessageContent;
   created_at: string;
+  metadata?: Record<string, unknown> | null;
 };
 
 export default function ChatScreen({ route, navigation }: Props) {
@@ -39,11 +46,13 @@ export default function ChatScreen({ route, navigation }: Props) {
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loadingMessages, setLoadingMessages] = useState(true);
+  const [starters, setStarters] = useState<ConversationStarterItem[]>([]);
   const [inputText, setInputText] = useState("");
   const [sending, setSending] = useState(false);
   const [expandedCorrections, setExpandedCorrections] = useState<Record<number, boolean>>({});
 
   const flatListRef = useRef<FlatList>(null);
+  const optimisticIdRef = useRef<number | null>(null);
 
   const openExplain = (params: RootStackParamList["ExplainScreen"]) => {
     navigation.navigate("ExplainScreen", params);
@@ -58,6 +67,25 @@ export default function ChatScreen({ route, navigation }: Props) {
   useEffect(() => {
     setCurrentThreadId(route.params.threadId);
   }, [route.params.threadId]);
+
+  useEffect(() => {
+    if (!token || currentThreadId) {
+      setStarters([]);
+      return;
+    }
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/chat/conversation-starters`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        setStarters(Array.isArray(data.starters) ? data.starters : []);
+      } catch {
+        /* non-fatal: typed send still works */
+      }
+    })();
+  }, [token, currentThreadId]);
 
   const fetchMessages = useCallback(async () => {
     if (!token) return;
@@ -88,52 +116,94 @@ export default function ChatScreen({ route, navigation }: Props) {
     })();
   }, [fetchMessages, flatListRef]);
 
+  const applySendResponse = useCallback(
+    (data: { thread_id?: number | null; user_message: ChatMessage; assistant_message: ChatMessage }) => {
+      setCurrentThreadId((tid) => {
+        if (!tid && typeof data.thread_id === "number") {
+          navigation.setParams({
+            threadId: data.thread_id,
+            title: `Chat ${data.thread_id}`,
+          });
+          return data.thread_id;
+        }
+        return tid;
+      });
+
+      const optId = optimisticIdRef.current;
+      optimisticIdRef.current = null;
+      setMessages((prev) => {
+        const withoutOptimistic =
+          typeof optId === "number" ? prev.filter((m) => m.id !== optId) : prev;
+        return [...withoutOptimistic, data.user_message, data.assistant_message];
+      });
+    },
+    [navigation],
+  );
+
+  const postChatTurn = useCallback(
+    async (body: Record<string, unknown>): Promise<boolean> => {
+      if (!token || sending) return false;
+      setSending(true);
+      try {
+        const res = await fetch(`${API_BASE_URL}/chat/messages`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(body),
+        });
+        const parsed = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          const detail = parsed?.detail;
+          let msgText = "Failed to send message";
+          if (typeof detail === "string") msgText = detail;
+          else if (Array.isArray(detail) && detail.length > 0) {
+            const first = detail[0] as { msg?: unknown };
+            if (typeof first?.msg === "string") msgText = first.msg;
+          }
+          throw new Error(msgText);
+        }
+        applySendResponse(parsed);
+        return true;
+      } catch (err) {
+        const rm = optimisticIdRef.current;
+        if (typeof rm === "number") {
+          optimisticIdRef.current = null;
+          setMessages((prev) => prev.filter((m) => m.id !== rm));
+        }
+        Alert.alert("Error", err instanceof Error ? err.message : "Could not send message");
+        return false;
+      } finally {
+        setSending(false);
+      }
+    },
+    [token, sending, applySendResponse],
+  );
+
   const sendMessage = async () => {
     const text = inputText.trim();
     if (!text || sending || !token) return;
 
     setInputText("");
-    setSending(true);
 
+    const tempId = Date.now();
+    optimisticIdRef.current = tempId;
     const optimisticUserMsg: ChatMessage = {
-      id: Date.now(),
+      id: tempId,
       role: "user",
       content: { text, correction_status: "pending", correction: null },
       created_at: new Date().toISOString(),
     };
     setMessages((prev) => [...prev, optimisticUserMsg]);
 
-    try {
-      const res = await fetch(`${API_BASE_URL}/chat/messages`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ text, thread_id: currentThreadId }),
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body?.detail ?? "Failed to send message");
-      }
-      const data = await res.json();
-      if (!currentThreadId && typeof data.thread_id === "number") {
-        setCurrentThreadId(data.thread_id);
-        navigation.setParams({
-          threadId: data.thread_id,
-          title: `Chat ${data.thread_id}`,
-        });
-      }
-      setMessages((prev) => {
-        const withoutOptimistic = prev.filter((m) => m.id !== optimisticUserMsg.id);
-        return [...withoutOptimistic, data.user_message, data.assistant_message];
-      });
-    } catch (err) {
-      setMessages((prev) => prev.filter((m) => m.id !== optimisticUserMsg.id));
-      Alert.alert("Error", err instanceof Error ? err.message : "Could not send message");
-    } finally {
-      setSending(false);
-    }
+    await postChatTurn({ text, thread_id: currentThreadId });
+  };
+
+  const sendStarter = async (starterId: string) => {
+    if (sending || !token || typeof currentThreadId === "number") return;
+    optimisticIdRef.current = null;
+    await postChatTurn({ starter_id: starterId });
   };
 
   const renderMessage = ({ item }: { item: ChatMessage }) => {
@@ -213,6 +283,9 @@ export default function ChatScreen({ route, navigation }: Props) {
     );
   };
 
+  const showStarterChips =
+    starters.length > 0 && !currentThreadId && messages.length === 0 && !loadingMessages && token;
+
   if (loadingMessages) {
     return (
       <View style={styles.centered}>
@@ -252,24 +325,58 @@ export default function ChatScreen({ route, navigation }: Props) {
         </>
       }
     >
-      <FlatList
-        ref={flatListRef}
-        data={messages}
-        keyExtractor={(item) => String(item.id)}
-        renderItem={renderMessage}
-        contentContainerStyle={styles.messageList}
-        onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
-        ListEmptyComponent={
-          <View style={styles.emptyChat}>
-            <Text style={styles.emptyChatText}>Send a message to start the conversation.</Text>
+      <View style={styles.messagesColumn}>
+        {showStarterChips ? (
+          <View style={styles.starterSection}>
+            <Text style={styles.starterIntro}>Start with a preset or type below.</Text>
+            <View style={styles.starterChipsWrap}>
+              {starters.map((s) => (
+                <Pressable
+                  key={s.id}
+                  style={({ pressed }) => [
+                    styles.starterChip,
+                    (pressed || sending) && styles.starterChipPressed,
+                    sending && styles.starterChipDisabled,
+                  ]}
+                  onPress={() => void sendStarter(s.id)}
+                  disabled={sending}
+                >
+                  <Text style={styles.starterChipText}>{s.display_text}</Text>
+                </Pressable>
+              ))}
+            </View>
           </View>
-        }
-      />
+        ) : null}
+        <FlatList
+          ref={flatListRef}
+          style={styles.flexList}
+          data={messages}
+          keyExtractor={(item) => String(item.id)}
+          renderItem={renderMessage}
+          contentContainerStyle={styles.messageList}
+          onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+          ListEmptyComponent={
+            showStarterChips ? null : (
+              <View style={styles.emptyChat}>
+                <Text style={styles.emptyChatText}>Send a message to start the conversation.</Text>
+              </View>
+            )
+          }
+        />
+      </View>
     </KeyboardAwareLayout>
   );
 }
 
 const styles = StyleSheet.create({
+  messagesColumn: {
+    flex: 1,
+    minHeight: 0,
+    backgroundColor: "#f8fafc",
+  },
+  flexList: {
+    flex: 1,
+  },
   container: {
     flex: 1,
     backgroundColor: "#f8fafc",
@@ -279,6 +386,44 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "#f8fafc",
+  },
+  starterSection: {
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    paddingBottom: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: "#e2e8f0",
+    backgroundColor: "#ffffff",
+  },
+  starterIntro: {
+    color: "#64748b",
+    fontSize: 13,
+    marginBottom: 8,
+  },
+  starterChipsWrap: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  starterChip: {
+    backgroundColor: "#eff6ff",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "#bfdbfe",
+    maxWidth: "100%",
+  },
+  starterChipPressed: {
+    opacity: 0.85,
+  },
+  starterChipDisabled: {
+    opacity: 0.5,
+  },
+  starterChipText: {
+    color: "#1d4ed8",
+    fontSize: 14,
+    fontWeight: "600",
   },
   messageList: {
     padding: 12,
@@ -419,8 +564,8 @@ const styles = StyleSheet.create({
   sendButton: {
     backgroundColor: "#2563eb",
     borderRadius: 10,
-    paddingHorizontal: 18,
     height: 44,
+    paddingHorizontal: 18,
     justifyContent: "center",
     alignItems: "center",
   },

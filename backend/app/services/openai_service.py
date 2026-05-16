@@ -8,12 +8,16 @@ from app.core.config import get_settings
 settings = get_settings()
 logger = logging.getLogger("polyglot.openai")
 
-def make_system_chat_prompt(target_language: str | None = None, native_language: str | None = None) -> str:
+def _create_language_context(target_language: str | None = None, native_language: str | None = None) -> str:
     lang_ctx = ""
     if target_language:
         lang_ctx = f"The user is learning {target_language}."
         if native_language:
             lang_ctx += f" Their native language is {native_language}."
+    return lang_ctx
+
+def make_system_chat_prompt(target_language: str | None = None, native_language: str | None = None) -> str:
+    lang_ctx = _create_language_context(target_language, native_language)
 
     system_prompt = (
         f"You are a proactive, engaging, and natural language conversation partner for Polyglot. {lang_ctx}\n\n"
@@ -80,11 +84,7 @@ def make_system_chat_prompt(target_language: str | None = None, native_language:
     return system_prompt
 
 def make_system_explain_prompt(target_language: str | None = None, native_language: str | None = None, source_text: str | None = None, source_corrected: str | None = None, source_notes: list[str] | None = None) -> str:
-    lang_ctx = ""
-    if target_language:
-        lang_ctx = f"The user is learning {target_language}."
-        if native_language:
-            lang_ctx += f" Their native language is {native_language}."
+    lang_ctx = _create_language_context(target_language, native_language)
 
     system_prompt = (
         f"You are a concise language tutor for Polyglot. {lang_ctx}\n\n"
@@ -148,7 +148,7 @@ def get_translation(
         "You are a translation engine for Polyglot. "
         "Translate the user's text faithfully and naturally. "
         "Return ONLY valid JSON with schema: "
-        '{"translated_text":"...","status":"complete"}'
+        '{"translated_text":"..."}'
     )
     user_prompt = (
         f"Target language: {to_language}\n"
@@ -198,12 +198,6 @@ def get_chat_turn(
         "status": "complete" | "failed"
       }
     """
-    lang_ctx = ""
-    if target_language:
-        lang_ctx = f"The user is learning {target_language}."
-        if native_language:
-            lang_ctx += f" Their native language is {native_language}."
-
     system_prompt = make_system_chat_prompt(target_language, native_language)
 
     openai_messages: list[dict] = [{"role": "system", "content": system_prompt}]
