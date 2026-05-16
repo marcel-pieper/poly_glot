@@ -20,6 +20,11 @@ class ThreadListResponse(BaseModel):
     total: int
 
 
+class GenerateThreadTitleResponse(BaseModel):
+    title: str
+    generated: bool
+
+
 class ExplainThreadSeed(BaseModel):
     source_thread_id: int
     source_message_id: int

@@ -31,6 +31,33 @@ export default function ChatOverviewScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [deletingThreadId, setDeletingThreadId] = useState<number | null>(null);
+  const [titlingThreadIds, setTitlingThreadIds] = useState<Record<number, boolean>>({});
+
+  const requestGeneratedTitle = useCallback(
+    async (threadId: number) => {
+      if (!token) return;
+      setTitlingThreadIds((p) => ({ ...p, [threadId]: true }));
+      try {
+        const res = await fetch(`${API_BASE_URL}/chat/threads/${threadId}/generate-title`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) return;
+        const body = (await res.json()) as { title?: string };
+        const newTitle = body.title;
+        if (typeof newTitle === "string" && newTitle.length > 0) {
+          setThreads((prev) => prev.map((t) => (t.id === threadId ? { ...t, title: newTitle } : t)));
+        }
+      } finally {
+        setTitlingThreadIds((p) => {
+          const next = { ...p };
+          delete next[threadId];
+          return next;
+        });
+      }
+    },
+    [token],
+  );
 
   const fetchThreads = useCallback(async () => {
     if (!token) return;
@@ -40,11 +67,17 @@ export default function ChatOverviewScreen() {
       });
       if (!res.ok) throw new Error("Failed to load chats");
       const data = await res.json();
-      setThreads(data.threads ?? []);
+      const list: Thread[] = data.threads ?? [];
+      setThreads(list);
+      for (const t of list) {
+        if (!t.title) {
+          void requestGeneratedTitle(t.id);
+        }
+      }
     } catch (err) {
       Alert.alert("Error", err instanceof Error ? err.message : "Could not load chats");
     }
-  }, [token]);
+  }, [token, requestGeneratedTitle]);
 
   useEffect(() => {
     (async () => {
@@ -168,7 +201,17 @@ export default function ChatOverviewScreen() {
                 deletingThreadId === thread.id && styles.chatRowDeleting,
               ]}
             >
-              <Text style={styles.chatTitle}>{thread.title ?? `Chat ${thread.id}`}</Text>
+              <View style={styles.chatTitleRow}>
+                {titlingThreadIds[thread.id] ? (
+                  <ActivityIndicator size="small" color="#64748b" style={styles.titleSpinner} />
+                ) : null}
+                <Text
+                  style={[styles.chatTitle, titlingThreadIds[thread.id] && styles.chatTitleMuted]}
+                  numberOfLines={2}
+                >
+                  {thread.title ?? `Chat ${thread.id}`}
+                </Text>
+              </View>
               <Text style={styles.chatMeta}>{new Date(thread.updated_at).toLocaleString()}</Text>
             </Pressable>
           ))
@@ -245,10 +288,22 @@ const styles = StyleSheet.create({
   chatRowDeleting: {
     opacity: 0.5,
   },
+  chatTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  titleSpinner: {
+    marginRight: 0,
+  },
   chatTitle: {
+    flex: 1,
     fontSize: 15,
     fontWeight: "700",
     color: "#0f172a",
+  },
+  chatTitleMuted: {
+    opacity: 0.65,
   },
   chatMeta: {
     marginTop: 4,

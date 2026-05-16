@@ -113,7 +113,7 @@ def get_dummy_completion(prompt: str) -> str:
 
     client = OpenAI(api_key=settings.openai_api_key)
     completion = client.responses.create(
-        model=settings.openai_model,
+        model=settings.openai_model_chat,
         input=f"You are Polyglot's assistant. Keep it short.\n\nUser prompt: {prompt}",
     )
     return completion.output_text or "No response from model."
@@ -159,7 +159,7 @@ def get_translation(
     try:
         client = OpenAI(api_key=settings.openai_api_key)
         response = client.chat.completions.create(
-            model=settings.openai_model,
+            model=settings.openai_model_translation,
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
@@ -212,7 +212,7 @@ def get_chat_turn(
     try:
         client = OpenAI(api_key=settings.openai_api_key)
         response = client.chat.completions.create(
-            model=settings.openai_model,
+            model=settings.openai_model_chat,
             messages=openai_messages,
             response_format={"type": "json_object"},
         )
@@ -291,7 +291,7 @@ def get_explain_turn(
     try:
         client = OpenAI(api_key=settings.openai_api_key)
         response = client.chat.completions.create(
-            model=settings.openai_model,
+            model=settings.openai_model_explain,
             messages=openai_messages,
             response_format={"type": "json_object"},
         )
@@ -309,3 +309,45 @@ def get_explain_turn(
             "correction": None,
             "status": "failed",
         }
+
+
+def get_chat_thread_title(conversation_lines: list[str]) -> str | None:
+    """
+    Produce a short list title from an abbreviated transcript (first messages).
+    Returns None if the API is unavailable or the model returns nothing usable.
+    """
+    if not conversation_lines:
+        return None
+
+    if not settings.openai_api_key:
+        logger.warning("OpenAI key not configured; skipping thread title generation")
+        return None
+
+    joined = "\n".join(conversation_lines)
+    system_prompt = (
+        "You name chat threads for a language-learning app. "
+        "Given the beginning of a conversation, output a very short title (about 3–7 words) "
+        "describing the topic in English. No quotation marks. No trailing punctuation. "
+        "Return ONLY valid JSON: {\"title\": \"...\"}"
+    )
+    user_prompt = f"Conversation excerpt:\n{joined}"
+
+    try:
+        client = OpenAI(api_key=settings.openai_api_key)
+        response = client.chat.completions.create(
+            model=settings.openai_model_thread_title,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            response_format={"type": "json_object"},
+        )
+        raw = response.choices[0].message.content or "{}"
+        data = json.loads(raw)
+        title = str(data.get("title") or "").strip()
+        if not title:
+            return None
+        return title[:255]
+    except Exception:
+        logger.exception("OpenAI thread title generation failed")
+        return None

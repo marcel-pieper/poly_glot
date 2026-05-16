@@ -14,6 +14,7 @@ from app.models.user import User
 from app.schemas.chat import (
     ConversationStarterItem,
     ConversationStartersResponse,
+    GenerateThreadTitleResponse,
     MessageListResponse,
     MessageOut,
     SendMessageRequest,
@@ -21,7 +22,11 @@ from app.schemas.chat import (
     ThreadListResponse,
 )
 from app.services.chat_starters import ChatStarterError, list_starters_for_api, resolve_starter_message_text
-from app.services.openai_service import get_chat_turn
+from app.services.openai_service import get_chat_thread_title, get_chat_turn
+from app.services.thread_title import (
+    build_conversation_lines_for_title,
+    history_has_non_starter_user_message,
+)
 from app.services.thread_turns import (
     build_llm_history,
     create_pending_user_message,
@@ -61,6 +66,7 @@ def list_threads(
             select(Message.id)
             .where(Message.thread_id == Thread.id)
             .where(Message.role == MessageRole.USER)
+            .where(Message.metadata_json["starter_id"].is_(None))
             .exists()
         )
     )
@@ -71,6 +77,42 @@ def list_threads(
         .all()
     )
     return ThreadListResponse(threads=list(threads), total=total)
+
+
+@router.post(
+    "/threads/{thread_id}/generate-title",
+    response_model=GenerateThreadTitleResponse,
+    status_code=status.HTTP_200_OK,
+)
+def generate_thread_title(
+    thread_id: int,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    thread = require_user_thread(thread_id, user, db, required_type=ThreadType.CHAT)
+    if thread.title:
+        return GenerateThreadTitleResponse(title=thread.title, generated=False)
+
+    history = load_thread_history(db, thread_id=thread_id, limit=20)
+    if not history_has_non_starter_user_message(history):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No user-written messages yet; nothing to title",
+        )
+
+    lines = build_conversation_lines_for_title(history)
+    title = get_chat_thread_title(lines)
+    if not title:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Could not generate a title right now",
+        )
+
+    thread.title = title
+    db.add(thread)
+    db.commit()
+    db.refresh(thread)
+    return GenerateThreadTitleResponse(title=title, generated=True)
 
 
 @router.get("/threads/{thread_id}/messages", response_model=MessageListResponse)
