@@ -20,7 +20,7 @@ from app.schemas.chat import (
     SendMessageResponse,
     ThreadListResponse,
 )
-from app.services.chat_starters import ChatStarterError, list_starters_for_api, starter_message_text
+from app.services.chat_starters import ChatStarterError, list_starters_for_api, resolve_starter_message_text
 from app.services.openai_service import get_chat_turn
 from app.services.thread_turns import (
     build_llm_history,
@@ -142,7 +142,7 @@ def send_message(
     if payload.starter_id:
         sid = payload.starter_id.strip()
         try:
-            effective_text = starter_message_text(sid)
+            effective_text = resolve_starter_message_text(sid)
         except ChatStarterError:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,

@@ -1,6 +1,13 @@
 {
   "random_conversation": {
     "display_text": "Start a random conversation",
-    "starter_text": "Hi — pick any casual everyday topic (food, hobbies, weekend plans, a movie, whatever you like), start the chat in character as my practice partner, and ask me something specific so we can dive in."
+    "message_variants": [
+      "Let's chat about anything — pick a topic you find interesting today.",
+      "I'd like to practice casual conversation. Ask me something open-ended.",
+      "Can we have a short dialogue as if we just met? Keep it natural.",
+      "Suggest a everyday situation (café, directions, plans) and let's role-play.",
+      "Tell me a story prompt and I'll respond in my own words — then correct me.",
+      "What's a useful phrase or idiom in your variety of the language? Let's build a mini dialogue around it."
+    ]
   }
 }
