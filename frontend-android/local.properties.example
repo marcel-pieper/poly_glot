@@ -1,0 +1,13 @@
+# Copy to `local.properties` (gitignored) and fill in.
+# Android Studio writes `sdk.dir` automatically on first sync.
+# sdk.dir=/Users/you/Library/Android/sdk
+
+# API base URL per build type (no trailing slash required).
+API_BASE_URL_DEBUG=http://10.0.2.2:8000/api
+API_BASE_URL_RELEASE=https://api.polyglot.example.com/api
+
+# Optional release signing config. Leave unset for debug-only builds.
+# RELEASE_STORE_FILE=/absolute/path/to/keystore.jks
+# RELEASE_STORE_PASSWORD=...
+# RELEASE_KEY_ALIAS=polyglot
+# RELEASE_KEY_PASSWORD=...
