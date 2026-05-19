@@ -23,9 +23,10 @@ data class ExplainUiState(
     val sourceMessageId: Long,
     val explainThreadId: Long? = null,
     val messages: List<MessageDto> = emptyList(),
-    val loadingMessages: Boolean = false,
+    val loadingMessages: Boolean = true,
     val sending: Boolean = false,
     val question: String = "",
+    val expandedCorrections: Set<Long> = emptySet(),
 )
 
 class ExplainViewModel(sourceThreadId: Long, sourceMessageId: Long) : ViewModel() {
@@ -40,7 +41,44 @@ class ExplainViewModel(sourceThreadId: Long, sourceMessageId: Long) : ViewModel(
     private val _errors = MutableSharedFlow<String>()
     val errors: SharedFlow<String> = _errors.asSharedFlow()
 
+    init {
+        viewModelScope.launch { loadExistingThread() }
+    }
+
+    private suspend fun loadExistingThread() {
+        val token = tokenStore.get() ?: run {
+            _state.update { it.copy(loadingMessages = false) }
+            return
+        }
+        runCatching {
+            repo.threadBySource(token, _state.value.sourceThreadId, _state.value.sourceMessageId)
+        }.onSuccess { existingId ->
+            if (existingId == null) {
+                _state.update { it.copy(loadingMessages = false) }
+                return@onSuccess
+            }
+            runCatching { repo.messages(token, existingId) }
+                .onSuccess { list ->
+                    _state.update {
+                        it.copy(explainThreadId = existingId, messages = list, loadingMessages = false)
+                    }
+                }
+                .onFailure { err ->
+                    _state.update { it.copy(explainThreadId = existingId, loadingMessages = false) }
+                    _errors.emit(err.userFacingMessage("Could not load explain messages"))
+                }
+        }.onFailure { err ->
+            _state.update { it.copy(loadingMessages = false) }
+            _errors.emit(err.userFacingMessage("Could not look up explain thread"))
+        }
+    }
+
     fun onQuestionChange(v: String) = _state.update { it.copy(question = v) }
+
+    fun toggleCorrection(messageId: Long) = _state.update {
+        val expanded = it.expandedCorrections
+        it.copy(expandedCorrections = if (messageId in expanded) expanded - messageId else expanded + messageId)
+    }
 
     fun ask() {
         val text = _state.value.question.trim()
@@ -51,7 +89,10 @@ class ExplainViewModel(sourceThreadId: Long, sourceMessageId: Long) : ViewModel(
             id = optimisticId,
             threadId = _state.value.explainThreadId ?: 0L,
             role = "user",
-            content = buildJsonObject { put("text", JsonPrimitive(text)) },
+            content = buildJsonObject {
+                put("text", JsonPrimitive(text))
+                put("correction_status", JsonPrimitive("pending"))
+            },
             createdAt = "",
             metadata = null,
         )

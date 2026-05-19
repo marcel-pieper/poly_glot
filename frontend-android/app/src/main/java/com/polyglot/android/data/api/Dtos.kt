@@ -113,6 +113,11 @@ data class ExplainSeed(
 )
 
 @Serializable
+data class ExplainThreadLookupResponse(
+    @SerialName("thread_id") val threadId: Long? = null,
+)
+
+@Serializable
 data class ExplainSendMessageRequest(
     val text: String,
     @SerialName("thread_id") val threadId: Long? = null,

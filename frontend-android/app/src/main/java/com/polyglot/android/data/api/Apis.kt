@@ -7,6 +7,7 @@ import retrofit2.http.Header
 import retrofit2.http.PATCH
 import retrofit2.http.POST
 import retrofit2.http.Path
+import retrofit2.http.Query
 
 interface AuthApi {
     @POST("auth/request-code")
@@ -68,6 +69,13 @@ interface ChatApi {
 }
 
 interface ExplainApi {
+    @GET("explain/threads/by-source")
+    suspend fun threadBySource(
+        @Header("Authorization") authorization: String,
+        @Query("source_thread_id") sourceThreadId: Long,
+        @Query("source_message_id") sourceMessageId: Long,
+    ): ExplainThreadLookupResponse
+
     @GET("explain/threads/{id}/messages")
     suspend fun messages(
         @Header("Authorization") authorization: String,

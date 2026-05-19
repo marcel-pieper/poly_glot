@@ -14,6 +14,7 @@ from app.models.thread import Thread, ThreadType
 from app.models.user import User
 from app.schemas.chat import (
     ExplainSendMessageRequest,
+    ExplainThreadLookupResponse,
     MessageListResponse,
     MessageOut,
     SendMessageResponse,
@@ -30,6 +31,39 @@ from app.services.thread_turns import (
 
 router = APIRouter(prefix="/explain", tags=["explain"])
 logger = logging.getLogger("polyglot.explain")
+
+
+def find_explain_thread_by_source(
+    db: Session,
+    user: User,
+    source_thread_id: int,
+    source_message_id: int,
+) -> Thread | None:
+    return (
+        db.execute(
+            select(Thread)
+            .join(LanguageSpace, Thread.language_space_id == LanguageSpace.id)
+            .where(LanguageSpace.user_id == user.id)
+            .where(Thread.type == ThreadType.EXPLAIN)
+            .where(Thread.seed["source_thread_id"].as_integer() == source_thread_id)
+            .where(Thread.seed["source_message_id"].as_integer() == source_message_id)
+            .order_by(Thread.id.asc())
+            .limit(1)
+        )
+        .scalars()
+        .first()
+    )
+
+
+@router.get("/threads/by-source", response_model=ExplainThreadLookupResponse)
+def lookup_explain_thread_by_source(
+    source_thread_id: int,
+    source_message_id: int,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    thread = find_explain_thread_by_source(db, user, source_thread_id, source_message_id)
+    return ExplainThreadLookupResponse(thread_id=thread.id if thread else None)
 
 
 @router.get("/threads", response_model=ThreadListResponse)
@@ -94,12 +128,7 @@ def send_explain_message(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="seed is required when starting a new explain thread",
             )
-        source_thread = require_user_thread(
-            payload.seed.source_thread_id,
-            user,
-            db,
-            required_type=ThreadType.CHAT,
-        )
+        source_thread = require_user_thread(payload.seed.source_thread_id, user, db)
         source_message = (
             db.execute(
                 select(Message)
@@ -117,24 +146,40 @@ def send_explain_message(
                 detail="Source message must be a user message",
             )
 
-        source_content = source_message.content if isinstance(source_message.content, dict) else {}
-        seed = {
-            "source_thread_id": source_thread.id,
-            "source_message_id": source_message.id,
-            "source_text": source_content.get("text", ""),
-            "correction": source_content.get("correction"),
-        }
-        thread = Thread(
-            language_space_id=source_thread.language_space_id,
-            parent_thread_id=source_thread.id,
-            type=ThreadType.EXPLAIN,
-            title=None,
-            seed=seed,
+        existing = find_explain_thread_by_source(
+            db,
+            user,
+            source_thread.id,
+            source_message.id,
         )
-        db.add(thread)
-        db.flush()
-        thread_id = thread.id
-        logger.info("Explain thread %s created from source thread %s", thread.id, source_thread.id)
+        if existing:
+            thread = existing
+            thread_id = thread.id
+            logger.info(
+                "Reusing explain thread %s for source thread %s message %s",
+                thread.id,
+                source_thread.id,
+                source_message.id,
+            )
+        else:
+            source_content = source_message.content if isinstance(source_message.content, dict) else {}
+            seed = {
+                "source_thread_id": source_thread.id,
+                "source_message_id": source_message.id,
+                "source_text": source_content.get("text", ""),
+                "correction": source_content.get("correction"),
+            }
+            thread = Thread(
+                language_space_id=source_thread.language_space_id,
+                parent_thread_id=source_thread.id,
+                type=ThreadType.EXPLAIN,
+                title=None,
+                seed=seed,
+            )
+            db.add(thread)
+            db.flush()
+            thread_id = thread.id
+            logger.info("Explain thread %s created from source thread %s", thread.id, source_thread.id)
 
     user_msg = create_pending_user_message(db, thread_id=thread_id, text=payload.text)
     history = load_thread_history(db, thread_id=thread_id, limit=20)

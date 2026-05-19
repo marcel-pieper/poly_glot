@@ -46,11 +46,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import com.polyglot.android.data.api.MessageDto
-import com.polyglot.android.ui.components.CorrectionBox
 import com.polyglot.android.ui.components.SelectableTranslatableText
-import com.polyglot.android.ui.nav.ExplainArgsHolder
+import com.polyglot.android.ui.components.UserMessageRow
+import com.polyglot.android.ui.nav.navigateToExplain
 import com.polyglot.android.ui.nav.Routes
-import com.polyglot.android.ui.theme.Green600
 import com.polyglot.android.ui.theme.PaleBlue
 import com.polyglot.android.ui.theme.PrimaryBlue
 import com.polyglot.android.ui.theme.PrimaryBlueDark
@@ -161,16 +160,13 @@ fun ChatScreen(
                                     navController.navigate(Routes.translation(selected))
                                 },
                                 onAskExplain = { messageText, correction, sourceThreadId ->
-                                    ExplainArgsHolder.put(
-                                        ExplainArgsHolder.Args(
-                                            sourceThreadId = sourceThreadId,
-                                            sourceMessageId = msg.id,
-                                            messageText = messageText,
-                                            correction = correction,
-                                            correctionStatusComplete = true,
-                                        ),
+                                    navigateToExplain(
+                                        navController = navController,
+                                        sourceThreadId = sourceThreadId,
+                                        sourceMessageId = msg.id,
+                                        messageText = messageText,
+                                        correction = correction,
                                     )
-                                    navController.navigate(Routes.explain(sourceThreadId, msg.id))
                                 },
                             )
                         }
@@ -235,56 +231,17 @@ private fun MessageRow(
 ) {
     if (msg.isUser) {
         val parsed = msg.parseUserContent()
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalAlignment = Alignment.End,
-        ) {
-            Box(
-                modifier = Modifier
-                    .widthIn(max = 320.dp)
-                    .background(PrimaryBlue, RoundedCornerShape(14.dp))
-                    .padding(12.dp),
-            ) {
-                Text(parsed.text, color = Color.White, fontSize = 15.sp)
-            }
-            when (parsed.correctionStatus) {
-                TurnStatus.Pending -> Box(modifier = Modifier.padding(top = 6.dp)) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(14.dp),
-                        strokeWidth = 2.dp,
-                        color = Slate500,
-                    )
-                }
-                TurnStatus.Failed -> Text(
-                    "Could not generate correction.",
-                    color = Slate500,
-                    fontSize = 13.sp,
-                    modifier = Modifier.padding(top = 6.dp),
-                )
-                TurnStatus.Complete -> {
-                    val correction = parsed.correction
-                    if (correction != null) {
-                        CorrectionBox(
-                            correction = correction,
-                            isExpanded = isExpanded,
-                            canOpenExplain = threadId != null,
-                            onToggle = onToggleCorrection,
-                            onAsk = {
-                                threadId?.let { tid ->
-                                    onAskExplain(parsed.text, correction, tid)
-                                }
-                            },
-                            modifier = Modifier
-                                .padding(top = 6.dp)
-                                .widthIn(max = 320.dp),
-                        )
-                    } else {
-                        Text("\u2713", color = Green600, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 4.dp))
-                    }
-                }
-                TurnStatus.Unknown -> Unit
-            }
-        }
+        UserMessageRow(
+            content = parsed,
+            isCorrectionExpanded = isExpanded,
+            onToggleCorrection = onToggleCorrection,
+            canAskExplain = threadId != null && parsed.correction != null,
+            onAskExplain = {
+                val tid = threadId ?: return@UserMessageRow
+                val correction = parsed.correction ?: return@UserMessageRow
+                onAskExplain(parsed.text, correction, tid)
+            },
+        )
     } else {
         val parsed = msg.parseAssistantContent()
         Column(modifier = Modifier.fillMaxWidth()) {

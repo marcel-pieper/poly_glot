@@ -30,6 +30,10 @@ class ExplainThreadSeed(BaseModel):
     source_message_id: int
 
 
+class ExplainThreadLookupResponse(BaseModel):
+    thread_id: int | None = None
+
+
 class MessageOut(BaseModel):
     id: int
     thread_id: int

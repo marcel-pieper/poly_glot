@@ -9,6 +9,9 @@ import com.polyglot.android.data.api.bearer
 
 class ExplainRepository(private val api: ExplainApi) {
 
+    suspend fun threadBySource(token: String, sourceThreadId: Long, sourceMessageId: Long): Long? =
+        api.threadBySource(bearer(token), sourceThreadId, sourceMessageId).threadId
+
     suspend fun messages(token: String, threadId: Long): List<MessageDto> =
         api.messages(bearer(token), threadId).messages
 

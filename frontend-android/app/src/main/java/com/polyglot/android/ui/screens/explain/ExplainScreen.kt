@@ -8,15 +8,15 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -48,7 +48,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import com.polyglot.android.data.api.MessageDto
+import com.polyglot.android.ui.components.UserMessageRow
 import com.polyglot.android.ui.nav.ExplainArgsHolder
+import com.polyglot.android.ui.nav.navigateToExplain
 import com.polyglot.android.ui.theme.PrimaryBlue
 import com.polyglot.android.ui.theme.Slate200
 import com.polyglot.android.ui.theme.Slate500
@@ -57,7 +59,8 @@ import com.polyglot.android.ui.theme.Slate900
 import com.polyglot.android.ui.theme.Stone700
 import com.polyglot.android.ui.theme.Stone900
 import com.polyglot.android.util.isAssistant
-import com.polyglot.android.util.parseAssistantText
+import com.polyglot.android.util.isUser
+import com.polyglot.android.util.parseAssistantContent
 import com.polyglot.android.util.parseUserContent
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -116,8 +119,24 @@ fun ExplainScreen(
                     CircularProgressIndicator(modifier = Modifier.size(20.dp), color = PrimaryBlue)
                 }
             } else if (state.messages.isNotEmpty()) {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    state.messages.forEach { msg -> MessageBubble(msg = msg) }
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    state.messages.forEach { msg ->
+                        ExplainThreadMessage(
+                            msg = msg,
+                            explainThreadId = state.explainThreadId,
+                            isExpanded = state.expandedCorrections.contains(msg.id),
+                            onToggleCorrection = { viewModel.toggleCorrection(msg.id) },
+                            onAskExplain = { threadId, messageId, messageText, correction ->
+                                navigateToExplain(
+                                    navController = navController,
+                                    sourceThreadId = threadId,
+                                    sourceMessageId = messageId,
+                                    messageText = messageText,
+                                    correction = correction,
+                                )
+                            },
+                        )
+                    }
                 }
             }
         }
@@ -167,27 +186,46 @@ private fun SectionLabel(text: String) {
 }
 
 @Composable
-private fun MessageBubble(msg: MessageDto) {
-    val isAssistant = msg.isAssistant
-    val text = if (isAssistant) msg.parseAssistantText() else msg.parseUserContent().text
+private fun ExplainThreadMessage(
+    msg: MessageDto,
+    explainThreadId: Long?,
+    isExpanded: Boolean,
+    onToggleCorrection: () -> Unit,
+    onAskExplain: (threadId: Long, messageId: Long, messageText: String, correction: com.polyglot.android.util.Correction) -> Unit,
+) {
+    if (msg.isUser) {
+        val parsed = msg.parseUserContent()
+        val threadId = explainThreadId ?: msg.threadId.takeIf { it > 0L }
+        UserMessageRow(
+            content = parsed,
+            isCorrectionExpanded = isExpanded,
+            onToggleCorrection = onToggleCorrection,
+            canAskExplain = threadId != null && parsed.correction != null,
+            onAskExplain = {
+                val tid = threadId ?: return@UserMessageRow
+                val correction = parsed.correction ?: return@UserMessageRow
+                onAskExplain(tid, msg.id, parsed.text, correction)
+            },
+        )
+    } else {
+        AssistantMessageBubble(msg = msg)
+    }
+}
+
+@Composable
+private fun AssistantMessageBubble(msg: MessageDto) {
+    if (!msg.isAssistant) return
+    val text = msg.parseAssistantContent().text
     Box(modifier = Modifier.fillMaxWidth()) {
         Box(
             modifier = Modifier
-                .widthIn(max = 360.dp)
-                .align(if (isAssistant) Alignment.CenterStart else Alignment.CenterEnd)
-                .then(
-                    if (isAssistant) Modifier
-                        .background(Color.White, RoundedCornerShape(12.dp))
-                        .border(1.dp, Slate200, RoundedCornerShape(12.dp))
-                    else Modifier.background(PrimaryBlue, RoundedCornerShape(12.dp)),
-                )
-                .padding(horizontal = 12.dp, vertical = 10.dp),
+                .widthIn(max = 320.dp)
+                .align(Alignment.CenterStart)
+                .background(Color.White, RoundedCornerShape(14.dp))
+                .border(1.dp, Slate200, RoundedCornerShape(14.dp))
+                .padding(horizontal = 14.dp, vertical = 11.dp),
         ) {
-            Text(
-                text = text,
-                color = if (isAssistant) Slate900 else Color.White,
-                fontSize = 14.sp,
-            )
+            Text(text = text, color = Slate900, fontSize = 15.sp, lineHeight = 22.sp)
         }
     }
 }

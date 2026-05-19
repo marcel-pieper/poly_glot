@@ -1,4 +1,5 @@
-.cursor/
+# Cursor IDE — share team rules; keep local MCP/config untracked
+.cursor/*
 
 # Backend
 backend/.env
@@ -14,6 +15,10 @@ frontend/.expo/
 # Agent helpers
 agent_helpers/database_mcp/.venv/
 agent_helpers/database_mcp/config.json
+
+# Model comparison harness
+model-tests/output/
+model-tests/.venv/
 
 # General
 .DS_Store

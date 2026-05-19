@@ -2,6 +2,7 @@ package com.polyglot.android.ui.nav
 
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
+import androidx.navigation.NavHostController
 import com.polyglot.android.util.Correction
 
 object Routes {
@@ -69,4 +70,23 @@ object ExplainArgsHolder {
 
     fun get(sourceThreadId: Long, sourceMessageId: Long): Args? =
         store[sourceThreadId to sourceMessageId]
+}
+
+fun navigateToExplain(
+    navController: NavHostController,
+    sourceThreadId: Long,
+    sourceMessageId: Long,
+    messageText: String,
+    correction: Correction?,
+) {
+    ExplainArgsHolder.put(
+        ExplainArgsHolder.Args(
+            sourceThreadId = sourceThreadId,
+            sourceMessageId = sourceMessageId,
+            messageText = messageText,
+            correction = correction,
+            correctionStatusComplete = true,
+        ),
+    )
+    navController.navigate(Routes.explain(sourceThreadId, sourceMessageId))
 }
