@@ -1,9 +1,0 @@
-{
-  "platforms": ["ios", "android"],
-  "ios": {
-    "modules": ["SelectionActionsModule"]
-  },
-  "android": {
-    "modules": ["expo.modules.selectionactions.SelectionActionsModule"]
-  }
-}

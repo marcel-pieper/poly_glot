@@ -1,7 +1,0 @@
-{
-  "name": "selection-actions",
-  "version": "0.1.0",
-  "description": "Native selectable text with a custom Translate action in the OS selection menu.",
-  "main": "index.ts",
-  "private": true
-}
