@@ -1,0 +1,13 @@
+{
+  "default_database": "polyglot",
+  "query": {
+    "max_rows": 500,
+    "timeout_seconds": 30
+  },
+  "databases": {
+    "polyglot": {
+      "description": "Polyglot dev Postgres (docker-compose postgres service)",
+      "connection_string": "postgresql://postgres:postgres@localhost:5433/polyglot"
+    }
+  }
+}
