@@ -58,4 +58,8 @@ def run_query(sql: str, database: str | None = None, max_rows: int | None = None
 
 
 def main() -> None:
-    mcp.run()
+    mcp.run(transport="stdio")
+
+
+if __name__ == "__main__":
+    main()

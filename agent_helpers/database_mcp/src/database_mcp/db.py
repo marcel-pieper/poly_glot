@@ -21,7 +21,9 @@ def _connect(db: DatabaseConfig, *, timeout_seconds: int) -> Iterator[Connection
     try:
         conn.read_only = True
         with conn.cursor() as cur:
-            cur.execute("SET statement_timeout = %s", (timeout_seconds * 1000,))
+            # SET does not accept bind parameters in PostgreSQL.
+            ms = int(timeout_seconds) * 1000
+            cur.execute(f"SET statement_timeout = {ms}")
         yield conn
     finally:
         conn.close()
@@ -48,7 +50,7 @@ def list_schemas(config: AppConfig, database: str | None) -> str:
         ORDER BY schema_name
     """
     with _connect(db, timeout_seconds=config.query.timeout_seconds) as conn:
-        with conn.transaction(readonly=True):
+        with conn.transaction():
             with conn.cursor() as cur:
                 cur.execute(sql)
                 rows_data = cur.fetchall()
@@ -64,7 +66,7 @@ def list_tables(config: AppConfig, database: str | None, schema: str = "public")
         ORDER BY table_name
     """
     with _connect(db, timeout_seconds=config.query.timeout_seconds) as conn:
-        with conn.transaction(readonly=True):
+        with conn.transaction():
             with conn.cursor() as cur:
                 cur.execute(sql, (schema,))
                 rows_data = cur.fetchall()
@@ -128,7 +130,7 @@ def describe_table(
         ORDER BY indexname
     """
     with _connect(db, timeout_seconds=config.query.timeout_seconds) as conn:
-        with conn.transaction(readonly=True):
+        with conn.transaction():
             with conn.cursor() as cur:
                 cur.execute(columns_sql, (schema, table))
                 columns = cur.fetchall()
@@ -171,7 +173,7 @@ def run_query(
     use_wrapper = kind in ("SELECT", "WITH", "TABLE")
 
     with _connect(db, timeout_seconds=config.query.timeout_seconds) as conn:
-        with conn.transaction(readonly=True):
+        with conn.transaction():
             with conn.cursor() as cur:
                 if use_wrapper:
                     wrapped = f"SELECT * FROM ({safe_sql}) AS _mcp_subquery LIMIT %s"
