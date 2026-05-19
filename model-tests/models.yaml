@@ -1,0 +1,20 @@
+# Default models per task (override with --models or --pair on CLI).
+correction:
+  - gpt-4.1
+  - gpt-5.4-mini
+  - gpt-5.3-chat-latest
+chat_reply:
+  - gpt-5.4-mini
+  - gpt-5.3-chat-latest
+translation:
+  - gpt-4.1
+  - gpt-5.4-mini
+  - gpt-4o-mini
+title:
+  - gpt-4o-mini
+  - gpt-5.4-nano
+turn_pairs:
+  - correction: gpt-4.1
+    chat: gpt-5.4-mini
+  - correction: gpt-5.3-chat-latest
+    chat: gpt-5.3-chat-latest

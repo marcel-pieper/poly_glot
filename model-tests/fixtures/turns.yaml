@@ -1,0 +1,19 @@
+# Full chat turn: correction + reply (same fixture drives both calls).
+- id: turn_with_minor_error
+  target_language: es
+  native_language: en
+  message_to_correct: "Anoche yo fui a cenar con mi hermana en un restaurante nuevo."
+  prior_exchange:
+    - [user, "¿Qué hiciste ayer?"]
+    - [assistant, "Cuéntame — ¿algo tranquilo o una aventura?"]
+  history:
+    - role: user
+      content:
+        text: "¿Qué hiciste ayer?"
+    - role: assistant
+      content:
+        assistant_response: "Cuéntame — ¿algo tranquilo o una aventura?"
+    - role: user
+      content:
+        text: "Anoche yo fui a cenar con mi hermana en un restaurante nuevo."
+  notes: "Tests paired correction+reply; judge both outputs and combined cost."

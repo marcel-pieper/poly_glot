@@ -1,0 +1,45 @@
+- id: no_error_clean_spanish
+  target_language: es
+  native_language: en
+  message_to_correct: "Ayer fui al mercado y compré fruta."
+  prior_exchange: []
+  notes: "Should return correction null — sentence is fine."
+
+- id: ignore_prior_turn_error
+  target_language: es
+  native_language: en
+  message_to_correct: "Yo quiero ir al mercado hoy."
+  prior_exchange:
+    - [user, "Me gusta mucho la playa allí."]
+    - [assistant, "¡Qué bien! ¿Qué te gusta hacer en la playa?"]
+  notes: "Prior user line has errors; only latest message should be judged."
+
+- id: ser_estar_mixup
+  target_language: es
+  native_language: en
+  message_to_correct: "Estoy aburrido porque hace mucho frío."
+  prior_exchange: []
+  notes: "Common ser/estar or natural phrasing — meaningful correction only if wrong."
+
+- id: subjunctive_error
+  target_language: es
+  native_language: en
+  message_to_correct: "Si tendría tiempo, iría al cine."
+  prior_exchange: []
+  notes: "Classic si + imperfect subjunctive error (tendría → tuviera)."
+
+- id: false_friend_embarazada
+  target_language: es
+  native_language: en
+  message_to_correct: "Estoy embarazada de mi error."
+  prior_exchange: []
+  notes: "False friend embarazada vs avergonzada."
+
+- id: french_partitive
+  target_language: fr
+  native_language: en
+  message_to_correct: "Je veux le pain et un café."
+  prior_exchange:
+    - [user, "Bonjour!"]
+    - [assistant, "Salut ! Tu prends quoi au petit-déjeuner ?"]
+  notes: "Partitive / article nuance in French."

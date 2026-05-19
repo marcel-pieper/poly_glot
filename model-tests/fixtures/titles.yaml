@@ -1,0 +1,10 @@
+- id: travel_chat
+  conversation_lines:
+    - "User: Quiero planear un viaje a Portugal en octubre."
+    - "Assistant: Octubre en Portugal puede ser perfecto — ¿lisboa, el norte, o la costa del algarve?"
+    - "User: Más la costa, me gusta nadar."
+
+- id: cooking_thread
+  conversation_lines:
+    - "User: I want to learn how to make pasta from scratch."
+    - "Assistant: Fresh pasta is forgiving — do you have a roller or are you going hand-cut?"

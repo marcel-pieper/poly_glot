@@ -1,0 +1,32 @@
+- id: short_passive_user
+  target_language: es
+  native_language: en
+  history:
+    - role: user
+      content:
+        text: "Hola"
+    - role: assistant
+      content:
+        assistant_response: "¡Hola! Imagina que llegas a una ciudad nueva sin mapa — ¿qué haces primero: buscas comida, un lugar para dormir, o hablas con alguien local?"
+  notes: "User sends another short message; reply should add energy, not generic filler."
+
+- id: rich_user_message
+  target_language: es
+  native_language: en
+  history:
+    - role: user
+      content:
+        text: "El fin de semana fui a la montaña con mis amigos y caminamos ocho horas."
+    - role: assistant
+      content:
+        assistant_response: "Ocho horas suena brutal — ¿hubo algún momento en que casi se rindieron o alguien quería volver?"
+  notes: "Follow the user's lead; stay specific, not interview-mode."
+
+- id: new_thread_opener
+  target_language: es
+  native_language: en
+  history:
+    - role: user
+      content:
+        text: "Me gusta cocinar pero siempre hago lo mismo."
+  notes: "First real turn energy — propose a concrete direction."

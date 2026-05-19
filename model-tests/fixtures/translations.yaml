@@ -1,0 +1,19 @@
+- id: en_to_es_simple
+  to_language: es
+  text: "I need to buy groceries before the store closes."
+  notes: "Straightforward EN → ES."
+
+- id: already_in_target
+  to_language: es
+  text: "Mañana tengo una reunión importante."
+  notes: "Already Spanish — natural phrasing, same meaning."
+
+- id: idiom_piece_of_cake
+  to_language: fr
+  text: "Don't worry, this exam will be a piece of cake."
+  notes: "Idiom — should not translate literally."
+
+- id: ambiguous_bank
+  to_language: de
+  text: "We sat on the bank and watched the river."
+  notes: "Disambiguate river bank, not financial bank."

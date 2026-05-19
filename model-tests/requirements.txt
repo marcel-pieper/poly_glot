@@ -1,0 +1,4 @@
+# Dependencies for model-tests/.venv (imports backend app code).
+pyyaml>=6.0
+openai>=1.107.0
+pydantic-settings>=2.10.0
