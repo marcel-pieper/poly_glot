@@ -1,0 +1,10 @@
+For each translation:
+
+ - translated text
+ - extracted categories (phrase, verb, noun, etc)
+   - along with their inividual translations
+
+ 
+in the future:
+ - alternative phrasing?
+ - 

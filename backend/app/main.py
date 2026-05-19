@@ -10,25 +10,11 @@ from app.api.routes_chat import router as chat_router
 from app.api.routes_explain import router as explain_router
 from app.api.routes_users import router as users_router
 from app.core.config import get_settings
+from app.core.logging_config import configure_logging
 
 settings = get_settings()
+configure_logging(settings)
 logger = logging.getLogger("polyglot.api")
-
-
-def configure_logging() -> None:
-    # Ensure application logs are always visible in console.
-    root_logger = logging.getLogger()
-    if not root_logger.handlers:
-        logging.basicConfig(
-            level=logging.INFO,
-            format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
-        )
-    else:
-        root_logger.setLevel(logging.INFO)
-    logger.setLevel(logging.INFO)
-
-
-configure_logging()
 
 
 @asynccontextmanager

@@ -1,4 +1,5 @@
 import logging
+from concurrent.futures import ThreadPoolExecutor
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import func, select
@@ -22,12 +23,13 @@ from app.schemas.chat import (
     ThreadListResponse,
 )
 from app.services.chat_starters import ChatStarterError, list_starters_for_api, resolve_starter_message_text
-from app.services.openai_service import get_chat_thread_title, get_chat_turn
+from app.services.openai_service import get_chat_reply, get_chat_thread_title, get_message_correction
 from app.services.thread_title import (
     build_conversation_lines_for_title,
     history_has_non_starter_user_message,
 )
 from app.services.thread_turns import (
+    build_correction_context,
     build_llm_history,
     create_pending_user_message,
     finalize_turn,
@@ -202,27 +204,54 @@ def send_message(
     )
 
     history = load_thread_history(db, thread_id=thread_id, limit=20)
+    llm_history = build_llm_history(history)
     target_lang_code, native_lang_code = resolve_language_codes(db, thread=thread, user=user)
+    is_starter_turn = isinstance((msg_metadata or {}).get("starter_id"), str)
 
     logger.info(
-        "Calling OpenAI for thread %s (target=%s native=%s)",
+        "Calling OpenAI for thread %s (target=%s native=%s starter=%s)",
         thread_id,
         target_lang_code,
         native_lang_code,
+        is_starter_turn,
     )
-    ai_content = get_chat_turn(
-        history=build_llm_history(history),
-        target_language=target_lang_code,
-        native_language=native_lang_code,
-    )
-    logger.info("AI content: %s", ai_content)
+
+    if is_starter_turn:
+        response_result = get_chat_reply(
+            history=llm_history,
+            target_language=target_lang_code,
+            native_language=native_lang_code,
+        )
+        correction_result = {"correction": None, "status": "complete"}
+    else:
+        message_to_correct, prior_exchange = build_correction_context(history)
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            correction_future = executor.submit(
+                get_message_correction,
+                message_to_correct,
+                prior_exchange,
+                target_lang_code,
+                native_lang_code,
+            )
+            response_future = executor.submit(
+                get_chat_reply,
+                llm_history,
+                target_lang_code,
+                native_lang_code,
+            )
+            correction_result = correction_future.result()
+            response_result = response_future.result()
+
+    logger.info("Correction result: %s", correction_result)
+    logger.info("Response result: %s", response_result)
 
     user_msg, assistant_msg = finalize_turn(
         db,
         thread=thread,
         user_msg=user_msg,
         input_text=effective_text,
-        ai_content=ai_content,
+        correction_result=correction_result,
+        response_result=response_result,
     )
 
     logger.info("Message pair persisted for thread %s", thread_id)

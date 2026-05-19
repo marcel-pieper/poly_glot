@@ -15,6 +15,11 @@ class Settings(BaseSettings):
     app_name: str = "Polyglot API"
     app_env: str = "development"
 
+    log_dir: str = "logs"
+    log_file: str = "polyglot.log"
+    log_level: str = "INFO"
+    log_backup_days: int = 30
+
     database_url: str = "postgresql+psycopg://polyglot:polyglot@localhost:5433/polyglot"
     jwt_secret: str = "change-me-in-production"
     jwt_expire_minutes: int = 60 * 24 * 7
@@ -25,6 +30,7 @@ class Settings(BaseSettings):
     openai_model_default: str | None = Field(default=None)
     openai_model_chat: str | None = None
     openai_model_explain: str | None = None
+    openai_model_correct: str | None = None
     openai_model_translation: str | None = None
     openai_model_thread_title: str | None = None
 
@@ -33,6 +39,7 @@ class Settings(BaseSettings):
         d = self.openai_model_default or "gpt-4o-mini"
         object.__setattr__(self, "openai_model_chat", self.openai_model_chat or d)
         object.__setattr__(self, "openai_model_explain", self.openai_model_explain or d)
+        object.__setattr__(self, "openai_model_correct", self.openai_model_correct or d)
         object.__setattr__(self, "openai_model_translation", self.openai_model_translation or d)
         object.__setattr__(self, "openai_model_thread_title", self.openai_model_thread_title or d)
         return self

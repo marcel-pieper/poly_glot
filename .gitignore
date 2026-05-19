@@ -4,6 +4,7 @@
 backend/.env
 backend/.venv/
 backend/__pycache__/
+backend/logs/
 
 # Frontend
 frontend/.env

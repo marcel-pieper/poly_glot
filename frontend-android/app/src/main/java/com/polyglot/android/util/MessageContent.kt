@@ -7,15 +7,29 @@ import kotlinx.serialization.json.JsonPrimitive
 
 /** Best-effort parsing for the dynamic `content` JSON returned by the chat/explain APIs. */
 
-enum class CorrectionStatus { Pending, Complete, Failed, Unknown }
+enum class TurnStatus { Pending, Complete, Failed, Unknown }
 
 data class Correction(val corrected: String, val notes: List<String>)
 
 data class UserContent(
     val text: String,
-    val correctionStatus: CorrectionStatus,
+    val correctionStatus: TurnStatus,
     val correction: Correction?,
 )
+
+data class AssistantContent(
+    val text: String,
+    val responseStatus: TurnStatus,
+)
+
+private fun JsonObject.parseTurnStatus(key: String, fallbackWhenMissing: TurnStatus): TurnStatus =
+    when (str(key)) {
+        "pending" -> TurnStatus.Pending
+        "complete" -> TurnStatus.Complete
+        "failed" -> TurnStatus.Failed
+        null -> fallbackWhenMissing
+        else -> TurnStatus.Unknown
+    }
 
 private fun JsonObject.str(key: String): String? =
     (this[key] as? JsonPrimitive)?.takeIf { it.isString }?.content
@@ -31,17 +45,20 @@ private fun JsonObject.parseCorrection(): Correction? {
 
 fun MessageDto.parseUserContent(): UserContent {
     val text = content.str("text").orEmpty()
-    val status = when (content.str("correction_status")) {
-        "pending" -> CorrectionStatus.Pending
-        "complete" -> CorrectionStatus.Complete
-        "failed" -> CorrectionStatus.Failed
-        null -> if (content["correction"] is JsonObject) CorrectionStatus.Complete else CorrectionStatus.Unknown
-        else -> CorrectionStatus.Unknown
-    }
+    val fallback = if (content["correction"] is JsonObject) TurnStatus.Complete else TurnStatus.Unknown
+    val status = content.parseTurnStatus("correction_status", fallback)
     return UserContent(text = text, correctionStatus = status, correction = content.parseCorrection())
 }
 
-fun MessageDto.parseAssistantText(): String = content.str("assistant_response").orEmpty()
+fun MessageDto.parseAssistantContent(): AssistantContent {
+    val text = content.str("assistant_response").orEmpty()
+    val fallback = if (text.isNotEmpty()) TurnStatus.Complete else TurnStatus.Unknown
+    val status = content.parseTurnStatus("response_status", fallback)
+    return AssistantContent(text = text, responseStatus = status)
+}
+
+@Deprecated("Use parseAssistantContent()", ReplaceWith("parseAssistantContent().text"))
+fun MessageDto.parseAssistantText(): String = parseAssistantContent().text
 
 val MessageDto.isUser: Boolean get() = role == "user"
 val MessageDto.isAssistant: Boolean get() = role == "assistant"

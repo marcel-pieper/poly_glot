@@ -140,7 +140,7 @@ def send_explain_message(
     history = load_thread_history(db, thread_id=thread_id, limit=20)
     target_lang_code, native_lang_code = resolve_language_codes(db, thread=thread, user=user)
 
-    ai_content = get_explain_turn(
+    ai_correction, ai_response = get_explain_turn(
         history=build_llm_history(history),
         seed=thread.seed,
         target_language=target_lang_code,
@@ -152,7 +152,8 @@ def send_explain_message(
         thread=thread,
         user_msg=user_msg,
         input_text=payload.text,
-        ai_content=ai_content,
+        correction_result=ai_correction,
+        response_result=ai_response,
     )
     logger.info("Explain message pair persisted for thread %s", thread_id)
     return SendMessageResponse(

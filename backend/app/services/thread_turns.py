@@ -58,6 +58,30 @@ def build_llm_history(history: list[Message]) -> list[dict]:
     return [{"role": m.role.value, "content": m.content} for m in history]
 
 
+def build_correction_context(history: list[Message]) -> tuple[str, list[tuple[str, str]]]:
+    """
+    Return the latest user text and up to one prior user/assistant exchange for correction context.
+    """
+    entries: list[tuple[str, str]] = []
+    for message in history:
+        content = message.content if isinstance(message.content, dict) else {}
+        if message.role == MessageRole.USER:
+            entries.append(("user", str(content.get("text", ""))))
+        elif message.role == MessageRole.ASSISTANT:
+            entries.append(("assistant", str(content.get("assistant_response", ""))))
+
+    if not entries or entries[-1][0] != "user":
+        return "", []
+
+    message_to_correct = entries[-1][1]
+    prior: list[tuple[str, str]] = []
+    for role, text in reversed(entries[:-1]):
+        prior.insert(0, (role, text))
+        if len(prior) >= 2:
+            break
+    return message_to_correct, prior
+
+
 def resolve_language_codes(db: Session, thread: Thread, user: User) -> tuple[str | None, str | None]:
     space = db.get(LanguageSpace, thread.language_space_id)
     target_lang_code: str | None = None
@@ -79,7 +103,8 @@ def finalize_turn(
     thread: Thread,
     user_msg: Message,
     input_text: str,
-    ai_content: dict,
+    correction_result: dict[str, Any],
+    response_result: dict[str, Any],
 ) -> tuple[Message, Message]:
     meta = user_msg.metadata_json or {}
     is_starter_turn = isinstance(meta.get("starter_id"), str)
@@ -89,14 +114,17 @@ def finalize_turn(
     else:
         user_msg.content = {
             "text": input_text,
-            "correction_status": ai_content.get("status", "failed"),
-            "correction": ai_content.get("correction"),
+            "correction_status": correction_result.get("status", "failed"),
+            "correction": correction_result.get("correction"),
         }
 
     assistant_msg = Message(
         thread_id=thread.id,
         role=MessageRole.ASSISTANT,
-        content={"assistant_response": ai_content.get("assistant_response", "")},
+        content={
+            "assistant_response": response_result.get("assistant_response", ""),
+            "response_status": response_result.get("status", "failed"),
+        },
     )
     db.add(assistant_msg)
 

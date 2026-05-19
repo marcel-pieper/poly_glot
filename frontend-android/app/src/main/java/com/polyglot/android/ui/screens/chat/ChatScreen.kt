@@ -59,9 +59,9 @@ import com.polyglot.android.ui.theme.Slate400
 import com.polyglot.android.ui.theme.Slate50
 import com.polyglot.android.ui.theme.Slate500
 import com.polyglot.android.ui.theme.Slate900
-import com.polyglot.android.util.CorrectionStatus
+import com.polyglot.android.util.TurnStatus
 import com.polyglot.android.util.isUser
-import com.polyglot.android.util.parseAssistantText
+import com.polyglot.android.util.parseAssistantContent
 import com.polyglot.android.util.parseUserContent
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -248,20 +248,20 @@ private fun MessageRow(
                 Text(parsed.text, color = Color.White, fontSize = 15.sp)
             }
             when (parsed.correctionStatus) {
-                CorrectionStatus.Pending -> Box(modifier = Modifier.padding(top = 6.dp)) {
+                TurnStatus.Pending -> Box(modifier = Modifier.padding(top = 6.dp)) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(14.dp),
                         strokeWidth = 2.dp,
                         color = Slate500,
                     )
                 }
-                CorrectionStatus.Failed -> Text(
+                TurnStatus.Failed -> Text(
                     "Could not generate correction.",
                     color = Slate500,
                     fontSize = 13.sp,
                     modifier = Modifier.padding(top = 6.dp),
                 )
-                CorrectionStatus.Complete -> {
+                TurnStatus.Complete -> {
                     val correction = parsed.correction
                     if (correction != null) {
                         CorrectionBox(
@@ -282,27 +282,44 @@ private fun MessageRow(
                         Text("\u2713", color = Green600, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 4.dp))
                     }
                 }
-                CorrectionStatus.Unknown -> Unit
+                TurnStatus.Unknown -> Unit
             }
         }
     } else {
-        val text = msg.parseAssistantText()
-        Box(
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Box(
-                modifier = Modifier
-                    .widthIn(max = 360.dp)
-                    .background(Color.White, RoundedCornerShape(14.dp))
-                    .border(1.dp, Slate200, RoundedCornerShape(14.dp))
-                    .padding(12.dp),
-            ) {
-                SelectableTranslatableText(
-                    text = text,
-                    onTranslate = onTranslate,
-                    fontSize = 15.sp,
-                    color = Slate900,
+        val parsed = msg.parseAssistantContent()
+        Column(modifier = Modifier.fillMaxWidth()) {
+            when (parsed.responseStatus) {
+                TurnStatus.Pending -> Box(modifier = Modifier.padding(vertical = 6.dp)) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(14.dp),
+                        strokeWidth = 2.dp,
+                        color = Slate500,
+                    )
+                }
+                TurnStatus.Failed -> Text(
+                    "Could not generate a reply.",
+                    color = Slate500,
+                    fontSize = 13.sp,
+                    modifier = Modifier.padding(vertical = 6.dp),
                 )
+                TurnStatus.Complete, TurnStatus.Unknown -> {
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        Box(
+                            modifier = Modifier
+                                .widthIn(max = 360.dp)
+                                .background(Color.White, RoundedCornerShape(14.dp))
+                                .border(1.dp, Slate200, RoundedCornerShape(14.dp))
+                                .padding(12.dp),
+                        ) {
+                            SelectableTranslatableText(
+                                text = parsed.text,
+                                onTranslate = onTranslate,
+                                fontSize = 15.sp,
+                                color = Slate900,
+                            )
+                        }
+                    }
+                }
             }
         }
     }
