@@ -4,13 +4,15 @@ Pure native Android client for the Polyglot backend. Kotlin + Jetpack Compose, M
 
 ## First-time setup
 
-This repo does not commit the Gradle wrapper jar. From this directory:
+AGP (`libs.versions.toml`) must match Gradle: use the **Gradle version** pinned in [`gradle-wrapper.properties`](gradle/wrapper/gradle-wrapper.properties).
+
+The repo includes **`gradlew` / `gradlew.bat`** and **`gradle-wrapper.jar`** so Cursor/CI can run builds without generating the wrapper locally.
+
+If you need to regenerate the wrapper (requires a Gradle install on PATH):
 
 ```bash
-gradle wrapper --gradle-version 8.11.1
+gradle wrapper --gradle-version 8.13
 ```
-
-(Requires a local Gradle 8.x install: `sdk install gradle 8.11.1` via SDKMAN, or `brew install gradle`.)
 
 Then:
 

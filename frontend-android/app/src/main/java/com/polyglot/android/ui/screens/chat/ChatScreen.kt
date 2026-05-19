@@ -112,8 +112,7 @@ fun ChatScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .background(Slate50)
-                .imePadding(),
+                .background(Slate50),
         ) {
             if (state.loadingMessages) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {

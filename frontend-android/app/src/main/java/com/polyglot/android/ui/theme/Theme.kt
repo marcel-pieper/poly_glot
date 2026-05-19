@@ -1,10 +1,15 @@
 package com.polyglot.android.ui.theme
 
+import android.app.Activity
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalInspectionMode
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
 
 private val PolyglotLightColors = lightColorScheme(
     primary = PrimaryBlue,
@@ -35,6 +40,17 @@ fun PolyglotTheme(
     MaterialTheme(
         colorScheme = PolyglotLightColors,
         typography = PolyglotTypography,
-        content = content,
-    )
+    ) {
+        val view = LocalView.current
+        if (!LocalInspectionMode.current) {
+            SideEffect {
+                val ctx = view.context as? Activity ?: return@SideEffect
+                WindowCompat.getInsetsController(ctx.window, view).apply {
+                    isAppearanceLightStatusBars = true
+                    isAppearanceLightNavigationBars = true
+                }
+            }
+        }
+        content()
+    }
 }

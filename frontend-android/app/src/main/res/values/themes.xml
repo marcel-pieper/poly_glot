@@ -1,6 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.Polyglot" parent="android:Theme.Material.Light.NoActionBar" />
+    <style name="Theme.Polyglot" parent="android:Theme.Material.Light.NoActionBar">
+        <!-- Readable system status / nav icons over our light Compose surfaces (edge-to-edge). -->
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
+        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
 
     <style name="Theme.Polyglot.Splash" parent="Theme.SplashScreen">
         <item name="windowSplashScreenBackground">@color/splash_background</item>

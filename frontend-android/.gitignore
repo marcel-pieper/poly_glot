@@ -3,7 +3,12 @@
 /local.properties
 /.idea
 .DS_Store
-/build
+# Gradle / Android outputs (root + module build dirs, e.g. app/build/)
+build/
+
+# Kotlin incremental caches (IDE / compiler)
+.kotlin/
+
 /captures
 .externalNativeBuild
 .cxx
