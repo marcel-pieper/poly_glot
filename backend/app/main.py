@@ -9,6 +9,7 @@ from app.api.routes_auth import router as auth_router
 from app.api.routes_chat import router as chat_router
 from app.api.routes_explain import router as explain_router
 from app.api.routes_users import router as users_router
+from app.api.routes_vocab import router as vocab_router
 from app.core.config import get_settings
 from app.core.logging_config import configure_logging
 
@@ -56,3 +57,4 @@ app.include_router(users_router, prefix="/api")
 app.include_router(ai_router, prefix="/api")
 app.include_router(chat_router, prefix="/api")
 app.include_router(explain_router, prefix="/api")
+app.include_router(vocab_router, prefix="/api")

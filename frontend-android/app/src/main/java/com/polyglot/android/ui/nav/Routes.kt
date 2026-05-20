@@ -50,6 +50,13 @@ object Routes {
     val TranslationArgs = listOf(
         navArgument(TranslationArg) { type = NavType.StringType },
     )
+
+    const val TranslationIdArg = "translationId"
+    const val TranslationById = "translation/id/{$TranslationIdArg}"
+    fun translationById(translationId: Long) = "translation/id/$translationId"
+    val TranslationByIdArgs = listOf(
+        navArgument(TranslationIdArg) { type = NavType.LongType },
+    )
 }
 
 /** Transient handoff for ExplainScreen's heavy params (text + correction) without nav serialization. */

@@ -9,11 +9,13 @@ import com.polyglot.android.data.api.ChatApi
 import com.polyglot.android.data.api.ExplainApi
 import com.polyglot.android.data.api.LanguagesApi
 import com.polyglot.android.data.api.MeApi
+import com.polyglot.android.data.api.VocabApi
 import com.polyglot.android.data.repository.AuthRepository
 import com.polyglot.android.data.repository.ChatRepository
 import com.polyglot.android.data.repository.ExplainRepository
 import com.polyglot.android.data.repository.LanguagesRepository
 import com.polyglot.android.data.repository.TranslateRepository
+import com.polyglot.android.data.repository.VocabRepository
 import com.polyglot.android.data.store.TokenStore
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
@@ -58,12 +60,14 @@ object ServiceLocator {
     val chatApi: ChatApi by lazy { retrofit.create(ChatApi::class.java) }
     val explainApi: ExplainApi by lazy { retrofit.create(ExplainApi::class.java) }
     val aiApi: AiApi by lazy { retrofit.create(AiApi::class.java) }
+    val vocabApi: VocabApi by lazy { retrofit.create(VocabApi::class.java) }
 
     val authRepository: AuthRepository by lazy { AuthRepository(authApi, meApi, tokenStore) }
     val languagesRepository: LanguagesRepository by lazy { LanguagesRepository(languagesApi, meApi) }
     val chatRepository: ChatRepository by lazy { ChatRepository(chatApi) }
     val explainRepository: ExplainRepository by lazy { ExplainRepository(explainApi) }
     val translateRepository: TranslateRepository by lazy { TranslateRepository(aiApi) }
+    val vocabRepository: VocabRepository by lazy { VocabRepository(vocabApi) }
 
     fun init(context: Context) {
         appContext = context.applicationContext

@@ -51,5 +51,12 @@ fun PolyglotNavHost(navController: NavHostController = rememberNavController()) 
             }.orEmpty()
             TranslationScreen(navController = navController, inputText = text)
         }
+        composable(
+            route = Routes.TranslationById,
+            arguments = Routes.TranslationByIdArgs,
+        ) { backStack ->
+            val translationId = backStack.arguments?.getLong(Routes.TranslationIdArg) ?: 0L
+            TranslationScreen(navController = navController, translationId = translationId)
+        }
     }
 }

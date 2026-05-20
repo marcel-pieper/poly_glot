@@ -137,8 +137,71 @@ data class SendMessageResponse(
 data class TranslateRequest(val text: String)
 
 @Serializable
+data class TranslateItemDto(
+    val type: String,
+    @SerialName("raw_item") val rawItem: String,
+    @SerialName("raw_item_translation") val rawItemTranslation: String,
+    val lemma: String,
+)
+
+@Serializable
 data class TranslateResponse(
+    @SerialName("translation_id") val translationId: Long? = null,
     @SerialName("source_text") val sourceText: String,
     @SerialName("translated_text") val translatedText: String,
     val status: String,
+    val items: List<TranslateItemDto> = emptyList(),
+)
+
+@Serializable
+data class TranslationSummaryDto(
+    val id: Long,
+    @SerialName("source_text") val sourceText: String,
+    @SerialName("translated_text") val translatedText: String,
+    @SerialName("from_language") val fromLanguage: String,
+    @SerialName("to_language") val toLanguage: String,
+    @SerialName("created_at") val createdAt: String,
+)
+
+@Serializable
+data class TranslationListResponse(
+    val translations: List<TranslationSummaryDto>,
+    val total: Int,
+)
+
+// --- vocab ---
+
+@Serializable
+data class AddVocabRequest(
+    val lemma: String,
+    val type: String,
+)
+
+@Serializable
+data class VocabItemDto(
+    val id: Long,
+    @SerialName("lemma_id") val lemmaId: Long,
+    val lemma: String,
+    val type: String,
+    val language: String,
+    val glosses: List<String> = emptyList(),
+    val state: Int,
+    val due: String,
+    @SerialName("last_review") val lastReview: String? = null,
+    @SerialName("review_count") val reviewCount: Int,
+    @SerialName("lapse_count") val lapseCount: Int,
+    @SerialName("is_due") val isDue: Boolean,
+)
+
+@Serializable
+data class VocabListResponse(
+    val items: List<VocabItemDto>,
+    val total: Int,
+    @SerialName("due_count") val dueCount: Int,
+)
+
+@Serializable
+data class AddVocabResponse(
+    val item: VocabItemDto,
+    val created: Boolean,
 )

@@ -89,7 +89,39 @@ interface ExplainApi {
     ): SendMessageResponse
 }
 
+interface VocabApi {
+    @GET("vocab")
+    suspend fun list(
+        @Header("Authorization") authorization: String,
+    ): VocabListResponse
+
+    @POST("vocab")
+    suspend fun add(
+        @Header("Authorization") authorization: String,
+        @Body body: AddVocabRequest,
+    ): AddVocabResponse
+
+    @DELETE("vocab/{vocabId}")
+    suspend fun delete(
+        @Header("Authorization") authorization: String,
+        @Path("vocabId") vocabId: Long,
+    )
+}
+
 interface AiApi {
+    @GET("ai/translations")
+    suspend fun listTranslations(
+        @Header("Authorization") authorization: String,
+        @Query("limit") limit: Int = 50,
+        @Query("offset") offset: Int = 0,
+    ): TranslationListResponse
+
+    @GET("ai/translations/{translationId}")
+    suspend fun getTranslation(
+        @Header("Authorization") authorization: String,
+        @Path("translationId") translationId: Long,
+    ): TranslateResponse
+
     @POST("ai/translate")
     suspend fun translate(
         @Header("Authorization") authorization: String,

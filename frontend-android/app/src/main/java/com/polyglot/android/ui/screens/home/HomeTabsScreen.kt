@@ -36,6 +36,7 @@ import androidx.navigation.NavHostController
 import com.polyglot.android.ui.screens.account.AccountScreen
 import com.polyglot.android.ui.screens.chat.ChatOverviewScreen
 import com.polyglot.android.ui.screens.translate.TranslateOverviewScreen
+import com.polyglot.android.ui.screens.vocab.VocabOverviewScreen
 import com.polyglot.android.ui.theme.Slate500
 import com.polyglot.android.ui.theme.Slate900
 
@@ -69,9 +70,15 @@ fun HomeTabsScreen(navController: NavHostController) {
         Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
             when (current) {
                 HomeTab.Practice -> Placeholder("Practice")
-                HomeTab.Vocab -> Placeholder("Vocab")
+                HomeTab.Vocab -> VocabOverviewScreen(
+                    navController = navController,
+                    isTabVisible = current == HomeTab.Vocab,
+                )
                 HomeTab.Chat -> ChatOverviewScreen(navController = navController)
-                HomeTab.Translate -> TranslateOverviewScreen(navController = navController)
+                HomeTab.Translate -> TranslateOverviewScreen(
+                    navController = navController,
+                    isTabVisible = current == HomeTab.Translate,
+                )
                 HomeTab.Data -> AccountScreen()
             }
         }
