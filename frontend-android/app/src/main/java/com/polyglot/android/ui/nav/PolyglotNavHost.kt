@@ -9,6 +9,7 @@ import com.polyglot.android.ui.screens.chat.ChatScreen
 import com.polyglot.android.ui.screens.explain.ExplainScreen
 import com.polyglot.android.ui.screens.home.HomeTabsScreen
 import com.polyglot.android.ui.screens.translate.TranslationScreen
+import com.polyglot.android.ui.screens.vocab.VocabPracticeScreen
 
 @Composable
 fun PolyglotNavHost(navController: NavHostController = rememberNavController()) {
@@ -57,6 +58,9 @@ fun PolyglotNavHost(navController: NavHostController = rememberNavController()) 
         ) { backStack ->
             val translationId = backStack.arguments?.getLong(Routes.TranslationIdArg) ?: 0L
             TranslationScreen(navController = navController, translationId = translationId)
+        }
+        composable(Routes.VocabPractice) {
+            VocabPracticeScreen(navController = navController)
         }
     }
 }

@@ -35,6 +35,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import com.polyglot.android.data.api.VocabItemDto
+import com.polyglot.android.ui.nav.Routes
 import com.polyglot.android.ui.theme.PrimaryBlue
 import com.polyglot.android.ui.theme.Red700
 import com.polyglot.android.ui.theme.Slate200
@@ -44,7 +45,7 @@ import com.polyglot.android.ui.theme.Slate900
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VocabOverviewScreen(
-    @Suppress("UNUSED_PARAMETER") navController: NavHostController,
+    navController: NavHostController,
     isTabVisible: Boolean = true,
     viewModel: VocabOverviewViewModel = viewModel(factory = VocabOverviewViewModel.Factory),
 ) {
@@ -63,8 +64,8 @@ fun VocabOverviewScreen(
         Text("Vocabulary", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Slate900)
 
         Button(
-            onClick = { /* TODO: start vocab practice session */ },
-            enabled = false,
+            onClick = { navController.navigate(Routes.VocabPractice) },
+            enabled = state.dueCount > 0,
             colors = ButtonDefaults.buttonColors(
                 containerColor = PrimaryBlue,
                 disabledContainerColor = Color(0xFF93C5FD),
@@ -74,7 +75,7 @@ fun VocabOverviewScreen(
             val label = if (state.dueCount > 0) {
                 "Start vocab practice (${state.dueCount} due)"
             } else {
-                "Start vocab practice"
+                "Nothing due right now"
             }
             Text(label, color = Color.White, fontWeight = FontWeight.Bold)
         }

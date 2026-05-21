@@ -14,11 +14,22 @@ from app.models.user_vocab import UserVocab
 from app.schemas.vocab import (
     AddVocabRequest,
     AddVocabResponse,
+    PracticeQueueResponse,
+    ReviewRequest,
+    ReviewResponse,
     VocabItem,
     VocabListResponse,
 )
 from app.services.extraction_service import get_or_create_lemma
-from app.services.fsrs_service import new_card_state
+from app.services.fsrs_service import Rating, apply_review, load_card, new_card_state
+
+
+_RATING_BY_NAME: dict[str, Rating] = {
+    "again": Rating.Again,
+    "hard": Rating.Hard,
+    "good": Rating.Good,
+    "easy": Rating.Easy,
+}
 
 router = APIRouter(prefix="/vocab", tags=["vocab"])
 
@@ -182,6 +193,95 @@ def add_vocab(
         item=_to_vocab_item(vocab, lemma, glosses, now),
         created=created,
     )
+
+
+@router.get("/practice/queue", response_model=PracticeQueueResponse)
+def practice_queue(
+    limit: int = 50,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    """Return cards that are due now, ordered by `due ASC` (oldest first).
+
+    A practice session walks through this list end-to-end. We deliberately do
+    not include not-yet-due cards: FSRS schedules them in the future for a
+    reason, and reviewing them early would skew the algorithm's history.
+    """
+    space_id, _target, native = _require_languages(db, user)
+    now = datetime.now(timezone.utc)
+
+    rows = db.execute(
+        select(UserVocab, Lemma)
+        .join(Lemma, Lemma.id == UserVocab.lemma_id)
+        .join(LanguageSpace, LanguageSpace.id == UserVocab.language_space_id)
+        .where(LanguageSpace.user_id == user.id)
+        .where(UserVocab.language_space_id == space_id)
+        .where(UserVocab.due <= now)
+        .order_by(UserVocab.due.asc(), UserVocab.id.asc())
+        .limit(max(1, min(limit, 200)))
+    ).all()
+
+    lemma_ids = [lemma.id for _vocab, lemma in rows]
+    glosses_by_lemma = _glosses_for(db, lemma_ids, native)
+    items = [
+        _to_vocab_item(vocab, lemma, glosses_by_lemma.get(lemma.id, []), now)
+        for vocab, lemma in rows
+    ]
+    return PracticeQueueResponse(items=items, total=len(items))
+
+
+@router.post("/{vocab_id}/review", response_model=ReviewResponse)
+def review_vocab(
+    vocab_id: int,
+    payload: ReviewRequest,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    """Grade a single card. Returns the card with its updated FSRS state."""
+    space_id, _target, native = _require_languages(db, user)
+
+    rating_key = payload.rating.strip().lower()
+    rating = _RATING_BY_NAME.get(rating_key)
+    if rating is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unknown rating '{payload.rating}'. Expected one of {sorted(_RATING_BY_NAME)}.",
+        )
+
+    row_pair = db.execute(
+        select(UserVocab, Lemma)
+        .join(Lemma, Lemma.id == UserVocab.lemma_id)
+        .join(LanguageSpace, LanguageSpace.id == UserVocab.language_space_id)
+        .where(UserVocab.id == vocab_id)
+        .where(UserVocab.language_space_id == space_id)
+        .where(LanguageSpace.user_id == user.id)
+    ).one_or_none()
+    if row_pair is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Vocab item not found.")
+
+    vocab, lemma = row_pair
+
+    card = load_card(
+        state=vocab.state,
+        step=vocab.step,
+        stability=vocab.stability,
+        difficulty=vocab.difficulty,
+        due=vocab.due,
+        last_review=vocab.last_review,
+    )
+    updated, _review_log = apply_review(card, rating)
+
+    for col, value in updated.to_columns().items():
+        setattr(vocab, col, value)
+    vocab.review_count = (vocab.review_count or 0) + 1
+    if rating == Rating.Again:
+        vocab.lapse_count = (vocab.lapse_count or 0) + 1
+    db.commit()
+    db.refresh(vocab)
+
+    glosses = _glosses_for(db, [lemma.id], native).get(lemma.id, []) if native else []
+    now = datetime.now(timezone.utc)
+    return ReviewResponse(item=_to_vocab_item(vocab, lemma, glosses, now))
 
 
 @router.delete("/{vocab_id}", status_code=status.HTTP_204_NO_CONTENT)

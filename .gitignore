@@ -15,10 +15,15 @@ frontend/.expo/
 # Agent helpers
 agent_helpers/database_mcp/.venv/
 agent_helpers/database_mcp/config.json
+agent_helpers/server_mcp/.venv/
+agent_helpers/server_mcp/config.yaml
 
 # Model comparison harness
 model-tests/output/
 model-tests/.venv/
+
+# Deploy logs on server (also under /opt/poly_glot/logs)
+logs/
 
 # General
 .DS_Store

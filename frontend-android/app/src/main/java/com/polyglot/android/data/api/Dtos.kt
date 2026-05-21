@@ -205,3 +205,15 @@ data class AddVocabResponse(
     val item: VocabItemDto,
     val created: Boolean,
 )
+
+@Serializable
+data class PracticeQueueResponse(
+    val items: List<VocabItemDto>,
+    val total: Int,
+)
+
+@Serializable
+data class ReviewRequest(val rating: String)
+
+@Serializable
+data class ReviewResponse(val item: VocabItemDto)

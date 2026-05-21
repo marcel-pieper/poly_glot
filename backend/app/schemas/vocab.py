@@ -41,3 +41,18 @@ class VocabListResponse(BaseModel):
 class AddVocabResponse(BaseModel):
     item: VocabItem
     created: bool
+
+
+class PracticeQueueResponse(BaseModel):
+    items: list[VocabItem]
+    total: int
+
+
+class ReviewRequest(BaseModel):
+    """Grade a card. Accepts the four standard FSRS ratings (case insensitive)."""
+
+    rating: str = Field(min_length=1, max_length=16)
+
+
+class ReviewResponse(BaseModel):
+    item: VocabItem

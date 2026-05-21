@@ -106,6 +106,19 @@ interface VocabApi {
         @Header("Authorization") authorization: String,
         @Path("vocabId") vocabId: Long,
     )
+
+    @GET("vocab/practice/queue")
+    suspend fun practiceQueue(
+        @Header("Authorization") authorization: String,
+        @Query("limit") limit: Int = 50,
+    ): PracticeQueueResponse
+
+    @POST("vocab/{vocabId}/review")
+    suspend fun review(
+        @Header("Authorization") authorization: String,
+        @Path("vocabId") vocabId: Long,
+        @Body body: ReviewRequest,
+    ): ReviewResponse
 }
 
 interface AiApi {

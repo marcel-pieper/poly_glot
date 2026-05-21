@@ -57,6 +57,8 @@ object Routes {
     val TranslationByIdArgs = listOf(
         navArgument(TranslationIdArg) { type = NavType.LongType },
     )
+
+    const val VocabPractice = "vocab/practice"
 }
 
 /** Transient handoff for ExplainScreen's heavy params (text + correction) without nav serialization. */
