@@ -1,0 +1,21 @@
+# Copy to config.yaml (gitignored) and fill in SSH details.
+
+default_server: main
+
+limits:
+  max_read_bytes: 1048576
+  auto_preview_above_bytes: 65536
+  preview_head_lines: 50
+  preview_tail_lines: 20
+  list_max_entries: 500
+
+servers:
+  main:
+    description: "Main production server"
+    host: 203.0.113.10
+    port: 22
+    user: deploy
+    key_file: C:/Users/you/.ssh/id_ed25519
+    # Optional: passphrase for encrypted private keys
+    # key_passphrase: ...
+    # connect_timeout_seconds: 20

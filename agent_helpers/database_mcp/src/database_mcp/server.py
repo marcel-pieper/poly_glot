@@ -6,7 +6,7 @@ from database_mcp import db
 from database_mcp.config import load_config
 
 mcp = FastMCP(
-    "polyglot-database",
+    "database_mcp",
     instructions=(
         "Read-only access to configured PostgreSQL databases. "
         "Use list_databases first, then list_tables / describe_table to explore schema, "

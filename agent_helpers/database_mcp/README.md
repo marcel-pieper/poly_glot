@@ -4,13 +4,11 @@ Read-only MCP server for exploring Postgres and running `SELECT` queries. Uses i
 
 ## Setup
 
-```bash
+```powershell
 cd agent_helpers/database_mcp
-python -m venv .venv
-.venv\Scripts\activate          # Windows
-# source .venv/bin/activate     # macOS/Linux
-pip install -e .
-cp config.example.json config.json
+C:\Users\marce\tech\python3.13.4\python.exe -m venv .venv
+.\.venv\Scripts\pip install -e .
+copy config.example.json config.json
 ```
 
 Postgres should be running (`docker compose up -d` from the repo root).
@@ -21,7 +19,21 @@ Edit `config.json` to add databases. See `config.example.json` for the shape. Ov
 
 ## Cursor
 
-Point MCP at this venv’s Python — see [`.cursor/mcp.json.example`](../../.cursor/mcp.json.example).
+Copy [`.cursor/mcp.json.example`](../../.cursor/mcp.json.example) to `.cursor/mcp.json` and adjust paths. The MCP server key should be **`database_mcp`** (same as this subproject folder):
+
+```json
+{
+  "mcpServers": {
+    "database_mcp": {
+      "command": "C:/path/to/poly_glot/agent_helpers/database_mcp/.venv/Scripts/python.exe",
+      "args": ["-m", "database_mcp.server"],
+      "cwd": "C:/path/to/poly_glot/agent_helpers/database_mcp"
+    }
+  }
+}
+```
+
+Each MCP subprocess must use **this folder's `.venv` Python**, not `backend/venv`.
 
 ## Tools
 
