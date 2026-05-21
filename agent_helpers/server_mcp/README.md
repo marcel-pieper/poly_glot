@@ -1,6 +1,6 @@
-# Server MCP (read-only SSH)
+# Server MCP (SSH)
 
-Read-only MCP server for exploring remote servers over SSH: list directories and read files (with preview/section support for large files). Uses its own `.venv` in this folder (not `backend/venv` or `database_mcp/.venv`).
+MCP server for remote servers over SSH: read files/directories, manage nginx site configs, and run certbot. Uses its own `.venv` in this folder (not `backend/venv` or `database_mcp/.venv`).
 
 ## Setup
 
@@ -21,7 +21,7 @@ See `config.example.yaml` for the full shape.
 
 ## Cursor
 
-Copy [`.cursor/mcp.json.example`](../../.cursor/mcp.json.example) to `.cursor/mcp.json` and adjust paths. The MCP server key should be **`server_mcp`** (same as this subproject folder):
+Copy [`.cursor/mcp.json.example`](../../.cursor/mcp.json.example) to `.cursor/mcp.json` and adjust paths. The MCP server key should be **`server_mcp`**:
 
 ```json
 {
@@ -35,14 +35,47 @@ Copy [`.cursor/mcp.json.example`](../../.cursor/mcp.json.example) to `.cursor/mc
 }
 ```
 
-Each MCP subprocess must use **this folder's `.venv` Python**, not `backend/venv`.
+Restart the MCP server in Cursor after code changes.
 
 ## Tools
+
+### Read
 
 | Tool | Description |
 |------|-------------|
 | `list_servers` | Show configured server aliases |
-| `list_directory` | List a remote directory (`server`, `path`, optional `show_hidden`) |
-| `read_file` | Read a remote file (`server`, `path`, optional `offset`, `limit`, `preview`) |
+| `list_directory` | List a remote directory |
+| `read_file` | Read a file (`offset`, `limit`, `preview` for large files) |
 
-Write/deploy tools will be added later.
+### Nginx
+
+| Tool | Description |
+|------|-------------|
+| `nginx_list_sites` | List `sites-available` and `sites-enabled` |
+| `nginx_test_config` | Run `nginx -t` |
+| `nginx_write_site` | Write full config to `sites-available/{site_name}` (optional backup) |
+| `nginx_enable_site` | Symlink site into `sites-enabled` |
+| `nginx_disable_site` | Remove symlink from `sites-enabled` |
+| `nginx_apply` | `nginx -t` then `systemctl reload nginx` (**`confirm=true` required**) |
+| `nginx_status` | `systemctl status nginx` |
+
+Site names must match `^[a-z][a-z0-9_-]*$`. Only `/etc/nginx/sites-available/{name}` is writable via `nginx_write_site`.
+
+### Certbot
+
+| Tool | Description |
+|------|-------------|
+| `certbot_list` | `certbot certificates` |
+| `certbot_issue` | `certbot certonly --nginx -d <domain>` (`dry_run=true` or `confirm=true`) |
+| `certbot_renew` | `certbot renew` (default `dry_run=true`; live renew needs `confirm=true`) |
+
+### Typical workflow (new subdomain)
+
+1. `nginx_write_site` — full site file (HTTP first, or full SSL if cert exists)
+2. `nginx_enable_site`
+3. `nginx_test_config`
+4. `certbot_issue` with `dry_run=true`, then `confirm=true`
+5. Update site file SSL paths if you maintain them manually (like PerFi)
+6. `nginx_test_config` → `nginx_apply` with `confirm=true`
+
+There is no generic shell tool; commands are allowlisted in code.

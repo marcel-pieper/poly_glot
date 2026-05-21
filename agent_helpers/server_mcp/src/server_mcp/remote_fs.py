@@ -94,7 +94,9 @@ def _is_binary(data: bytes) -> bool:
     return bool(sample.translate(None, delete=text_chars))
 
 
-def _decode_line(raw: bytes) -> str:
+def _decode_line(raw: bytes | str) -> str:
+    if isinstance(raw, str):
+        return raw.rstrip("\r\n")
     return raw.decode("utf-8", errors="replace").rstrip("\r\n")
 
 
@@ -242,7 +244,7 @@ def read_file(
                 "Use preview=true or offset/limit to read a section."
             )
 
-        with sftp.open(path, "r") as remote_file:
+        with sftp.open(path, "rb") as remote_file:
             data = remote_file.read(size)
         content_lines = [_decode_line(raw) for raw in data.splitlines()]
         lines = header + ["Mode: full", ""]

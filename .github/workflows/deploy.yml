@@ -1,0 +1,62 @@
+name: Deploy Polyglot API to Droplet
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - "docker-compose.yml"
+      - ".github/workflows/deploy.yml"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: 137.184.41.83
+          username: deploy
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+
+            set -e
+            REPO_ROOT=/opt/poly_glot
+            cd "$REPO_ROOT"
+            mkdir -p logs
+
+            echo "==> Pulling latest..."
+            git pull
+
+            echo "==> Starting database..."
+            docker compose up -d
+            sleep 5
+
+            echo "==> Backend: venv, deps, migrations..."
+            cd backend
+            if [[ ! -d venv ]]; then
+              python3 -m venv venv
+            fi
+
+            source venv/bin/activate
+            pip install -q -r requirements.txt
+            alembic upgrade head
+            cd "$REPO_ROOT"
+
+            echo "==> Restarting backend on :8001..."
+            PIDFILE="$REPO_ROOT/backend/.polyglot-backend.pid"
+            if [[ -f "$PIDFILE" ]]; then
+              OLD_PID=$(cat "$PIDFILE")
+              if kill -0 "$OLD_PID" 2>/dev/null; then
+                kill "$OLD_PID" 2>/dev/null || true
+                sleep 2
+              fi
+              rm -f "$PIDFILE"
+            fi
+            cd backend
+            nohup env ENV=production APP_ENV=production venv/bin/python run.py \
+              > ../logs/backend-$(date +%Y%m%d%H%M%S).log 2>&1 &
+            echo $! > .polyglot-backend.pid
+            cd "$REPO_ROOT"
+
+            echo "==> Deploy done. Backend PID: $(cat backend/.polyglot-backend.pid)"

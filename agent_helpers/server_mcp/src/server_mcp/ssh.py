@@ -25,6 +25,11 @@ def _load_pkey(server: ServerConfig) -> paramiko.PKey | None:
     raise ValueError(f"Could not load SSH key for server '{server.name}': {path}")
 
 
+def get_ssh_client(server: ServerConfig) -> paramiko.SSHClient:
+    """Return a connected SSH client for the given server."""
+    return _connect(server)
+
+
 def _connect(server: ServerConfig) -> paramiko.SSHClient:
     cached = _clients.get(server.name)
     if cached is not None:
