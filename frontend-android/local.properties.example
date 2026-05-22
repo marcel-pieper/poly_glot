@@ -3,8 +3,11 @@
 # sdk.dir=/Users/you/Library/Android/sdk
 
 # API base URL per build type (no trailing slash required).
-API_BASE_URL_DEBUG=http://10.0.2.2:8000/api
-API_BASE_URL_RELEASE=https://api.polyglot.example.com/api
+# Debug variant: applicationId com.polyglot.android.debug
+API_BASE_URL_DEBUG=http://10.0.2.2:8001/api
+# API_BASE_URL_DEBUG=https://your-ngrok-host.ngrok-free.app/api
+# Release variant: applicationId com.polyglot.android
+API_BASE_URL_RELEASE=https://poly.thedevmind.com/api
 
 # Optional release signing config. Leave unset for debug-only builds.
 # RELEASE_STORE_FILE=/absolute/path/to/keystore.jks

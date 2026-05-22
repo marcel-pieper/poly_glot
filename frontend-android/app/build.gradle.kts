@@ -51,13 +51,14 @@ android {
 
     buildTypes {
         debug {
+            applicationIdSuffix = ".debug"
             isMinifyEnabled = false
             buildConfigField(
                 "String",
                 "API_BASE_URL",
                 "\"${apiBaseUrl(
                     "API_BASE_URL_DEBUG",
-                    "https://e8d6-2800-320-c2cd-be00-1125-bf7-6bbd-2edf.ngrok-free.app/api",
+                    "http://10.0.2.2:8001/api",
                 )}\"",
             )
         }
@@ -72,7 +73,10 @@ android {
             buildConfigField(
                 "String",
                 "API_BASE_URL",
-                "\"${apiBaseUrl("API_BASE_URL_RELEASE", "https://api.polyglot.example.com/api")}\"",
+                "\"${apiBaseUrl(
+                    "API_BASE_URL_RELEASE",
+                    "https://poly.thedevmind.com/api",
+                )}\"",
             )
         }
     }
