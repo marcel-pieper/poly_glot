@@ -36,7 +36,7 @@ def upgrade() -> None:
         VALUES
           ('en', 'English', 'English', true),
           ('es', 'Spanish', 'Español', true),
-          ('pt', 'Portuguese', 'Português', true),
+          ('pt', 'Portuguese', 'Português', true)
         ON CONFLICT (code) DO NOTHING
         """
     )
