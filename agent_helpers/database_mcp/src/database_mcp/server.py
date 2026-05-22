@@ -9,6 +9,7 @@ mcp = FastMCP(
     "database_mcp",
     instructions=(
         "Read-only access to configured PostgreSQL databases. "
+        "Some aliases use an automatic SSH tunnel (see config ssh block). "
         "Use list_databases first, then list_tables / describe_table to explore schema, "
         "and run_query for SELECT-only SQL. Writes are blocked."
     ),

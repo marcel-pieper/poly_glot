@@ -7,10 +7,23 @@ from pathlib import Path
 
 
 @dataclass(frozen=True)
+class SshConfig:
+    host: str
+    user: str
+    port: int = 22
+    key_file: Path | None = None
+    key_passphrase: str | None = None
+    remote_host: str = "127.0.0.1"
+    remote_port: int = 5433
+    local_port: int = 0
+
+
+@dataclass(frozen=True)
 class DatabaseConfig:
     name: str
     description: str
     connection_string: str
+    ssh: SshConfig | None = None
 
 
 @dataclass(frozen=True)
@@ -40,6 +53,28 @@ def _config_path() -> Path:
     return Path(__file__).resolve().parents[2] / "config.json"
 
 
+def _parse_ssh(name: str, raw: dict) -> SshConfig:
+    host = raw.get("host")
+    user = raw.get("user")
+    if not host or not user:
+        raise ValueError(f"Database '{name}' ssh config requires host and user")
+
+    key_file = raw.get("key_file")
+    key_path = Path(key_file).expanduser() if key_file else None
+    if key_path is not None and not key_path.is_file():
+        raise FileNotFoundError(f"Database '{name}' ssh key_file not found: {key_path}")
+    return SshConfig(
+        host=str(host),
+        user=str(user),
+        port=int(raw.get("port", 22)),
+        key_file=key_path,
+        key_passphrase=raw.get("key_passphrase"),
+        remote_host=str(raw.get("remote_host", "127.0.0.1")),
+        remote_port=int(raw.get("remote_port", 5433)),
+        local_port=int(raw.get("local_port", 0)),
+    )
+
+
 def load_config() -> AppConfig:
     path = _config_path()
     if not path.is_file():
@@ -60,10 +95,13 @@ def load_config() -> AppConfig:
         conn = entry.get("connection_string") or entry.get("url")
         if not conn:
             raise ValueError(f"Database '{name}' is missing connection_string")
+        ssh_raw = entry.get("ssh")
+        ssh = _parse_ssh(name, ssh_raw) if ssh_raw else None
         databases[name] = DatabaseConfig(
             name=name,
             description=str(entry.get("description", "")),
             connection_string=str(conn),
+            ssh=ssh,
         )
 
     if not databases:

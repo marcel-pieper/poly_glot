@@ -130,6 +130,53 @@ git -C /opt/poly_glot remote set-url origin git@github-polyglot:marcel-pieper/po
 - **Logs:** `/opt/poly_glot/logs/backend-*.log`
 - **PID file:** `backend/.polyglot-backend.pid`
 
+## Postgres password drift (Docker volume)
+
+Same gotcha as PerFi: the official Postgres image sets `POSTGRES_PASSWORD` **only when the data directory is empty** (first `docker compose up`). After that, the password lives in the **volume** (`postgres_data`). Changing `POSTGRES_PASSWORD` in `docker-compose.yml` or `DATABASE_URL` in `backend/.env` does **not** update the running database.
+
+**Symptom:** deploy fails at `alembic upgrade head` with:
+
+```text
+FATAL: password authentication failed for user "postgres"
+```
+
+…on `127.0.0.1:5433`, even though `docker-compose.yml` and `backend/.env` both use `postgres:postgres`.
+
+**Diagnose (on the server):**
+
+```bash
+cd /opt/poly_glot
+
+# Inside the container — local socket auth, no password in URL
+docker compose exec postgres psql -U postgres -d polyglot -c "SELECT 1"
+
+# From the host — must match DATABASE_URL in backend/.env
+PGPASSWORD=postgres psql -h 127.0.0.1 -p 5433 -U postgres -d polyglot -c "SELECT 1"
+```
+
+If the first succeeds and the second fails, the volume password does not match `.env` / compose.
+
+**Fix A — keep data (usual):** reset the role password inside the container to match compose and `.env`:
+
+```bash
+cd /opt/poly_glot
+docker compose exec postgres psql -U postgres -c "ALTER USER postgres PASSWORD 'postgres';"
+PGPASSWORD=postgres psql -h 127.0.0.1 -p 5433 -U postgres -d polyglot -c "SELECT 1"
+cd backend && source venv/bin/activate && alembic upgrade head
+```
+
+**Fix B — empty database only:** remove the volume and recreate (wipes all Polyglot DB data):
+
+```bash
+cd /opt/poly_glot
+docker compose down -v
+docker compose up -d
+sleep 5
+cd backend && source venv/bin/activate && alembic upgrade head
+```
+
+Use **B** only on a fresh prod DB with nothing to keep.
+
 ## Alembic `version_num` length
 
 Alembic’s default `alembic_version.version_num` column is **VARCHAR(32)**. Revision `0002_threads_messages_translations` is longer than 32 characters.

@@ -8,13 +8,22 @@ import psycopg
 from psycopg import Connection, rows
 
 from database_mcp.config import AppConfig, DatabaseConfig
+from database_mcp.connection_url import rewrite_host_port
 from database_mcp.sql_guard import first_keyword, validate_read_only_sql
+from database_mcp.ssh_tunnel import get_local_bind_port
+
+
+def _resolve_connection_string(db: DatabaseConfig) -> str:
+    if db.ssh is None:
+        return db.connection_string
+    local_port = get_local_bind_port(db.name, db.ssh)
+    return rewrite_host_port(db.connection_string, "127.0.0.1", local_port)
 
 
 @contextmanager
 def _connect(db: DatabaseConfig, *, timeout_seconds: int) -> Iterator[Connection]:
     conn = psycopg.connect(
-        db.connection_string,
+        _resolve_connection_string(db),
         row_factory=rows.dict_row,
         connect_timeout=timeout_seconds,
     )
@@ -36,7 +45,11 @@ def _rows_to_json(data: list[dict[str, Any]]) -> str:
 def list_configured_databases(config: AppConfig) -> str:
     lines = [f"Default database: {config.default_database}", ""]
     for name, db in sorted(config.databases.items()):
-        lines.append(f"- **{name}**: {db.description or '(no description)'}")
+        desc = db.description or "(no description)"
+        if db.ssh is not None:
+            ssh = db.ssh
+            desc = f"{desc} [SSH {ssh.user}@{ssh.host} -> {ssh.remote_host}:{ssh.remote_port}]"
+        lines.append(f"- **{name}**: {desc}")
     return "\n".join(lines)
 
 

@@ -8,6 +8,18 @@
     "polyglot": {
       "description": "Polyglot dev Postgres (docker-compose postgres service)",
       "connection_string": "postgresql://postgres:postgres@localhost:5433/polyglot"
+    },
+    "polyglot_prod": {
+      "description": "Polyglot prod Postgres on droplet (SSH tunnel opened automatically)",
+      "connection_string": "postgresql://postgres:postgres@127.0.0.1:5433/polyglot",
+      "ssh": {
+        "host": "137.184.41.83",
+        "user": "deploy",
+        "port": 22,
+        "key_file": "C:/Users/you/.ssh/id_ed25519",
+        "remote_host": "127.0.0.1",
+        "remote_port": 5433
+      }
     }
   }
 }
