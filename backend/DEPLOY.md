@@ -132,28 +132,49 @@ git -C /opt/poly_glot remote set-url origin git@github-polyglot:marcel-pieper/po
 
 ## Alembic `version_num` length
 
-Alembic’s default `alembic_version.version_num` column is **VARCHAR(32)**. Polyglot revision ids can be longer (e.g. `0002_threads_messages_translations`).
+Alembic’s default `alembic_version.version_num` column is **VARCHAR(32)**. Revision `0002_threads_messages_translations` is longer than 32 characters.
 
-Configured in **`alembic.ini`**:
+**Not in `0001_initial`:** that migration runs *before* Alembic creates `alembic_version` (the table appears when `0001` is stamped).
 
-```ini
-version_num_length = 128
+**Fix in the chain:** `0002_threads_messages_translations.py` starts with:
+
+```sql
+ALTER TABLE alembic_version ALTER COLUMN version_num TYPE VARCHAR(128);
 ```
 
-**`alembic/env.py`** widens the column to that size before each online `alembic upgrade head` (including deploy).
+(Use **128** or larger if you add longer revision ids later.)
 
 ### If deploy failed with `value too long for type character varying(32)`
 
-The database was up; the failure was the version stamp, not Postgres connectivity.
+The database was up; the failure was the version stamp, not Postgres connectivity. Fix the column once, then re-run migrations.
 
-1. Merge/push the `env.py` + `alembic.ini` fix, re-run deploy (or on the server):
-   ```bash
-   cd /opt/poly_glot/backend && source venv/bin/activate
-   alembic upgrade head
-   ```
-2. If `0002` migration **already ran** but the version row is still `0001_initial`, stamp then upgrade:
-   ```bash
-   alembic stamp 0002_threads_messages_translations
-   alembic upgrade head
-   ```
-   (Only if `alembic upgrade head` errors with “table already exists”.)
+**On the server (as `deploy` or root):**
+
+```bash
+cd /opt/poly_glot
+
+# Option A — docker (matches docker-compose.yml)
+docker compose exec postgres psql -U postgres -d polyglot -c \
+  "ALTER TABLE alembic_version ALTER COLUMN version_num TYPE VARCHAR(128);"
+
+# Option B — if psql is on the host and port 5433 is published
+psql "postgresql://postgres:postgres@127.0.0.1:5433/polyglot" -c \
+  "ALTER TABLE alembic_version ALTER COLUMN version_num TYPE VARCHAR(128);"
+```
+
+Then:
+
+```bash
+cd /opt/poly_glot/backend
+source venv/bin/activate
+alembic upgrade head
+```
+
+If `alembic upgrade head` fails with **“relation already exists”** (0002 schema applied but version stuck on `0001_initial`):
+
+```bash
+alembic stamp 0002_threads_messages_translations
+alembic upgrade head
+```
+
+Push the latest `alembic/env.py` fix so future deploys pre-create a wide `alembic_version` table before any migration runs.

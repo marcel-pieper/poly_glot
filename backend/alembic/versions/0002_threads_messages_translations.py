@@ -34,6 +34,11 @@ message_role_enum = postgresql.ENUM(
 
 
 def upgrade() -> None:
+    # Alembic stamps 0001 with a VARCHAR(32) version table; 0002's revision id is longer.
+    op.execute(
+        "ALTER TABLE alembic_version ALTER COLUMN version_num TYPE VARCHAR(128)"
+    )
+
     thread_type_enum.create(op.get_bind(), checkfirst=True)
     message_role_enum.create(op.get_bind(), checkfirst=True)
 
